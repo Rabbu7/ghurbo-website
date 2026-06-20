@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import Navbar from '../../components/Navbar'
 import Footer from '../../components/Footer'
+import buildersPortrait from '../../assets/builders2.jpeg'
 
 export default function About() {
   return (
@@ -162,7 +163,7 @@ export default function About() {
                 <img 
                   alt="Founder Portrait" 
                   className="relative rounded-xl w-full object-cover aspect-square grayscale group-hover:grayscale-0 transition-all" 
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuAZNqsTL_KuAshlOTRWKnqqi9wRcfZrDRNUNQRj2OGQWc6ALVf-UXZM82RTmm-9tpIl_0gwCpjfSIwSVXLsOonm3iZjmsjzaF2fudMM7nrau30SjiZdRVESEX8FiPVZiQriLqx2iuLrqVoCdfYPKyrub_xPGlU0p-Oj-fzXz3M8z_mJfqVdV5OsZvK42tt5_mY0YsiatMXYpIg0yn2RMcweROzelwNZAlyDkvYLOx6e07Pondgpty2ysNgGccC4asyl_FBga_Z0fWY"
+                  src={buildersPortrait}
                 />
               </div>
             </div>

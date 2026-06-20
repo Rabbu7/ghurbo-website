@@ -2,6 +2,8 @@
 
 *The Verdant Curator of Bangladesh*
 
+![GHURBO Homepage Screen](client/src/assets/ghurbo_homepage.png)
+
 GHURBO is a full-stack web platform that reimagines domestic travel planning in Bangladesh. It unifies transportation booking (bus, train, ship), hotel reservations, and secure digital payments into a single, AI-powered journey — all wrapped in a high-end editorial design inspired by the lush, riverine beauty of the delta.
 
 Unlike traditional booking engines, GHURBO uses Google Gemini 2.5 Flash to intelligently plan multi-leg routes across Bangladesh's 64 districts, then matches those routes against a real inventory of transport operators and hotels. The result is a seamless, end-to-end travel experience — from search to e-ticket with QR code.

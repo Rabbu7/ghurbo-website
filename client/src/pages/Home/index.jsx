@@ -89,7 +89,7 @@ export default function Home() {
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-widest px-2">Origin</label>
                   <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-primary">location_on</span>
-                    <input className="bg-transparent border-none focus:ring-0 font-headline font-bold text-lg w-full placeholder:text-outline-variant" placeholder="Dhaka, BD" type="text" value={origin} onChange={e => setOrigin(e.target.value)} />
+                    <input className="bg-transparent border-none focus:ring-0 font-headline font-bold text-lg w-full placeholder:text-outline-variant" placeholder="Dhaka" type="text" value={origin} onChange={e => setOrigin(e.target.value)} />
                   </div>
                 </div>
                 <div className="p-4 flex flex-col gap-1 hover:bg-surface-container-low rounded-lg transition-colors">
