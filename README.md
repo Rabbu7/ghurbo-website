@@ -1,5 +1,3 @@
-You're absolutely right! Here's the complete README.md in a single copy-paste format:
-
 ```markdown
 # 🌿 GHURBO — Integrated Tourism & Travel Management System
 
