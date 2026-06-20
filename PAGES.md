@@ -227,28 +227,6 @@ Before building any page, complete these:
 </Routes>
 ```
 
----
 
-## Prompt Template (use for every page)
 
-```
-Read AGENTS.md, DESIGN.md, and PAGES.md before writing any code.
-[Attach the JPG screenshot from Stitch]
 
-Build: [Page Name] at [file path]
-
-Requirements:
-- Tailwind CSS utility classes only
-- Use color token names from tailwind.config.js (e.g. bg-surface, text-on-surface)
-- Mobile-first, 390px base width
-- Follow DESIGN.md strictly:
-  * No 1px borders — use background color shifts for depth
-  * Plus Jakarta Sans for all headlines
-  * Inter for body and labels
-  * Glassmorphism navbar (bg-surface/70 backdrop-blur-2xl)
-  * Minimum rounded-lg on all components
-  * Use tertiary (#a23802) only for urgency text
-- Use mock data — no real API calls
-- Match the attached screenshot as closely as possible
-- Export as default functional component
-```
