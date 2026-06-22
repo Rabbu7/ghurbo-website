@@ -101,7 +101,7 @@ export default function SearchResults() {
               </h1>
               <p className="text-on-surface-variant font-medium flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">calendar_today</span>
-                {searchParams.date || ''} • 1 Passenger
+                {searchParams.date || ''} • Passenger
               </p>
               {searchParams.tripType === 'round_trip' && (
                 <div className="mt-4 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 text-xs font-bold uppercase tracking-wider">

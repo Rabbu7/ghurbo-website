@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useBooking } from '../../context/BookingContext'
 import Navbar from '../../components/Navbar'
 import Footer from '../../components/Footer'
+import { autocomplete } from '../../api/search.api'
 
 export default function Home() {
   const navigate = useNavigate()
@@ -13,6 +14,72 @@ export default function Home() {
   const [activeFilter, setActiveFilter] = useState('Coastal')
   const [tripType, setTripType] = useState('one_way')
   const [returnDate, setReturnDate] = useState('')
+
+  const [originSuggestions, setOriginSuggestions] = useState([])
+  const [destinationSuggestions, setDestinationSuggestions] = useState([])
+  const [showOriginSuggestions, setShowOriginSuggestions] = useState(false)
+  const [showDestinationSuggestions, setShowDestinationSuggestions] = useState(false)
+
+  const fetchSuggestions = async (query) => {
+    if (!query || query.length < 1) {
+      setOriginSuggestions([])
+      setDestinationSuggestions([])
+      return
+    }
+    try {
+      const data = await autocomplete(query)
+      setOriginSuggestions(data.destinations)
+      setDestinationSuggestions(data.destinations)
+    } catch (err) {
+      console.error('Autocomplete error:', err)
+    }
+  }
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (origin) {
+        fetchSuggestions(origin)
+        setShowOriginSuggestions(true)
+      } else {
+        setOriginSuggestions([])
+      }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [origin])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (destination) {
+        fetchSuggestions(destination)
+        setShowDestinationSuggestions(true)
+      } else {
+        setDestinationSuggestions([])
+      }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [destination])
+
+  const handleSelectOrigin = (name) => {
+    setOrigin(name)
+    setShowOriginSuggestions(false)
+    setOriginSuggestions([])
+  }
+
+  const handleSelectDestination = (name) => {
+    setDestination(name)
+    setShowDestinationSuggestions(false)
+    setDestinationSuggestions([])
+  }
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setShowOriginSuggestions(false)
+      setShowDestinationSuggestions(false)
+    }
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [])
 
   const handleSearch = () => {
     if (!origin || !destination) return
@@ -85,19 +152,75 @@ export default function Home() {
                   </button>
                 </div>
 
-                <div className="p-4 flex flex-col gap-1 hover:bg-surface-container-low rounded-lg transition-colors group">
+                <div className="p-4 flex flex-col gap-1 hover:bg-surface-container-low rounded-lg transition-colors group relative" onClick={(e) => e.stopPropagation()}>
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-widest px-2">Origin</label>
                   <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-primary">location_on</span>
-                    <input className="bg-transparent border-none focus:ring-0 font-headline font-bold text-lg w-full placeholder:text-outline-variant" placeholder="Dhaka" type="text" value={origin} onChange={e => setOrigin(e.target.value)} />
+                    <input 
+                      className="bg-transparent border-none focus:ring-0 font-headline font-bold text-lg w-full placeholder:text-outline-variant" 
+                      placeholder="Dhaka" 
+                      type="text" 
+                      value={origin} 
+                      onChange={(e) => setOrigin(e.target.value)}
+                      onFocus={() => origin && setShowOriginSuggestions(true)}
+                    />
                   </div>
+                  {showOriginSuggestions && originSuggestions.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-surface-container-lowest rounded-lg shadow-lg z-50 max-h-60 overflow-auto" onClick={(e) => e.stopPropagation()}>
+                      {originSuggestions.map((dest, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => handleSelectOrigin(dest.name)}
+                          className="w-full px-4 py-3 text-left hover:bg-surface-container-high transition-colors flex items-center justify-between"
+                        >
+                          <div>
+                            <p className="font-bold text-on-surface">{dest.name}</p>
+                            <p className="text-xs text-on-surface-variant">{dest.district}</p>
+                          </div>
+                          <span className="material-symbols-outlined text-primary text-sm">
+                            {dest.type === 'beach' ? 'beach_access' : 
+                             dest.type === 'hill' ? 'filter_hdr' : 
+                             dest.type === 'nature' ? 'forest' : 'location_city'}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <div className="p-4 flex flex-col gap-1 hover:bg-surface-container-low rounded-lg transition-colors">
+                <div className="p-4 flex flex-col gap-1 hover:bg-surface-container-low rounded-lg transition-colors group relative" onClick={(e) => e.stopPropagation()}>
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-widest px-2">Destination</label>
                   <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-primary">explore</span>
-                    <input className="bg-transparent border-none focus:ring-0 font-headline font-bold text-lg w-full placeholder:text-outline-variant" placeholder="Cox's Bazar" type="text" value={destination} onChange={e => setDestination(e.target.value)} />
+                    <input 
+                      className="bg-transparent border-none focus:ring-0 font-headline font-bold text-lg w-full placeholder:text-outline-variant" 
+                      placeholder="Cox's Bazar" 
+                      type="text" 
+                      value={destination} 
+                      onChange={(e) => setDestination(e.target.value)}
+                      onFocus={() => destination && setShowDestinationSuggestions(true)}
+                    />
                   </div>
+                  {showDestinationSuggestions && destinationSuggestions.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-surface-container-lowest rounded-lg shadow-lg z-50 max-h-60 overflow-auto" onClick={(e) => e.stopPropagation()}>
+                      {destinationSuggestions.map((dest, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => handleSelectDestination(dest.name)}
+                          className="w-full px-4 py-3 text-left hover:bg-surface-container-high transition-colors flex items-center justify-between"
+                        >
+                          <div>
+                            <p className="font-bold text-on-surface">{dest.name}</p>
+                            <p className="text-xs text-on-surface-variant">{dest.district}</p>
+                          </div>
+                          <span className="material-symbols-outlined text-primary text-sm">
+                            {dest.type === 'beach' ? 'beach_access' : 
+                             dest.type === 'hill' ? 'filter_hdr' : 
+                             dest.type === 'nature' ? 'forest' : 'location_city'}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="p-4 flex flex-col gap-1 hover:bg-surface-container-low rounded-lg transition-colors">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-widest px-2">Date</label>
