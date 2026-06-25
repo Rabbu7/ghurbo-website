@@ -13,10 +13,14 @@ export default function SearchResults() {
   const [results, setResults] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  
+  // Selection flow state
+  const [activeLegIndex, setActiveLegIndex] = useState(0)
+  const [selectedPerLeg, setSelectedPerLeg] = useState({})
+  
+  // Scoped filters / sorting state
   const [sortBy, setSortBy] = useState('earliest')
-  const [selectedTransport, setSelectedTransport] = useState(null)
   const [filterType, setFilterType] = useState([])
-  const [filterTime, setFilterTime] = useState('')
 
   useEffect(() => {
     const fetchResults = async () => {
@@ -49,31 +53,81 @@ export default function SearchResults() {
     fetchResults()
   }, [searchParams, navigate, setForwardLegs, setReturnLegs])
 
-  // Flatten operators from all legs into a single list
-  const allOperators = results?.forward_legs?.flatMap(leg =>
-    (leg.operators || []).map(op => ({ ...op, leg }))
-  ) || []
-
-  // Sort operators
-  const sortedOperators = [...allOperators].sort((a, b) => {
-    if (sortBy === 'price')
-      return (a.seat_types?.[0]?.price || 0) - (b.seat_types?.[0]?.price || 0)
-    if (sortBy === 'earliest')
-      return (a.schedules?.[0]?.departure || '').localeCompare(
-        b.schedules?.[0]?.departure || ''
-      )
-    return 0
-  })
-
-  const handleSelectOperator = (operator) => {
-    setSelectedTransport(operator)
-    selectForwardLeg(operator)
+  const handleSelect = (operator) => {
+    setSelectedPerLeg(prev => ({
+      ...prev,
+      [activeLegIndex]: operator
+    }))
+    setActiveLegIndex(prev => prev + 1)
   }
+
+  const handleChange = (index) => {
+    setSelectedPerLeg(prev => {
+      const next = { ...prev }
+      for (let i = index; i < (results?.forward_legs?.length || 0); i++) {
+        delete next[i]
+      }
+      return next
+    })
+    setActiveLegIndex(index)
+  }
+
+  const handleFilterToggle = (type) => {
+    setFilterType(prev => 
+      prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
+    )
+  }
+
+  const handleClearFilters = () => {
+    setFilterType([])
+  }
+
+  const selectedOperators = Object.values(selectedPerLeg)
+  const totalSum = selectedOperators.reduce((sum, op) => sum + (op.seat_types?.[0]?.price || 0), 0)
+  const allLegsSelected = results?.forward_legs?.length > 0 && selectedOperators.length === results.forward_legs.length
 
   const handleContinue = () => {
-    if (!selectedTransport) return
-    navigate('/search/outbound')
+    selectForwardLeg(selectedOperators)
+    if (searchParams.tripType === 'round_trip') {
+      navigate('/search/outbound')
+    } else {
+      navigate('/search/outbound')
+    }
   }
+
+  // Active leg computations
+  const activeLeg = results?.forward_legs?.[activeLegIndex]
+  const rawOperators = activeLeg?.operators || []
+
+  const filteredOperators = rawOperators.filter(op => {
+    if (filterType.length === 0) return true
+    const opMode = op.mode || activeLeg.mode
+    return filterType.some(type => {
+      if (type === 'launch' || type === 'ship') {
+        return opMode === 'launch' || opMode === 'ship'
+      }
+      return type === opMode
+    })
+  })
+
+  const sortedOperators = [...filteredOperators].sort((a, b) => {
+    if (sortBy === 'price') {
+      const priceA = a.seat_types?.[0]?.price || 0
+      const priceB = b.seat_types?.[0]?.price || 0
+      return priceA - priceB
+    }
+    if (sortBy === 'earliest') {
+      const depA = a.schedules?.[0]?.departure || ''
+      const depB = b.schedules?.[0]?.departure || ''
+      return depA.localeCompare(depB)
+    }
+    if (sortBy === 'duration') {
+      const durA = a.schedules?.[0]?.duration_hours || 0
+      const durB = b.schedules?.[0]?.duration_hours || 0
+      return durA - durB
+    }
+    return 0
+  })
 
   return (
     <div className="bg-background text-on-surface selection:bg-primary-container selection:text-on-primary-container min-h-screen flex flex-col">
@@ -91,7 +145,7 @@ export default function SearchResults() {
 
       <Navbar />
 
-      <main className="pt-28 pb-20 px-4 md:px-8 max-w-7xl mx-auto flex-grow">
+      <main className="pt-28 pb-20 px-4 md:px-8 max-w-7xl mx-auto flex-grow w-full">
         {/* Search Context Header */}
         <header className="mb-12">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -112,7 +166,7 @@ export default function SearchResults() {
             </div>
             <button
               onClick={() => navigate('/')}
-              className="flex items-center gap-2 px-6 py-3 bg-surface-container-low rounded-xl text-on-surface-variant font-bold hover:bg-surface-container-highest transition-all"
+              className="flex items-center gap-2 px-6 py-3 bg-surface-container-low rounded-xl text-on-surface-variant font-bold hover:bg-surface-container-highest transition-all border-none outline-none"
             >
               <span className="material-symbols-outlined">edit</span>
               Modify Search
@@ -123,33 +177,47 @@ export default function SearchResults() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* Filters Sidebar */}
           <aside className="lg:col-span-3 sticky top-28 space-y-8">
-            <div className="bg-surface-container-low p-6 rounded-lg">
+            <div className="bg-surface-container-low p-6 rounded-2xl">
               <h3 className="font-headline font-bold text-lg mb-6 flex items-center justify-between">
                 Filters
-                <span className="text-sm font-label text-primary font-semibold cursor-pointer">Clear All</span>
+                <button 
+                  onClick={handleClearFilters}
+                  className="text-sm font-label text-primary font-semibold cursor-pointer border-none bg-transparent hover:underline"
+                >
+                  Clear All
+                </button>
               </h3>
               {/* Transport Type */}
               <div className="mb-8">
                 <label className="block text-sm font-bold text-on-surface-variant uppercase tracking-widest mb-4">Transport Type</label>
                 <div className="space-y-3">
-                  <label className="flex items-center gap-3 cursor-pointer group">
-                    <div className="w-5 h-5 rounded border-2 border-outline group-hover:border-primary transition-colors flex items-center justify-center bg-surface-container-lowest">
-                      <div className="w-2.5 h-2.5 bg-primary rounded-sm opacity-0"></div>
+                  <button 
+                    onClick={() => handleFilterToggle('bus')}
+                    className="w-full flex items-center gap-3 cursor-pointer group bg-transparent border-none text-left p-0"
+                  >
+                    <div className={`w-5 h-5 rounded border-2 transition-colors flex items-center justify-center ${filterType.includes('bus') ? 'border-primary bg-primary' : 'border-outline group-hover:border-primary bg-surface-container-lowest'}`}>
+                      {filterType.includes('bus') && <span className="material-symbols-outlined text-on-primary text-xs" style={{ fontVariationSettings: "'wght' 700" }}>check</span>}
                     </div>
-                    <span className="font-medium text-on-surface">Bus</span>
-                  </label>
-                  <label className="flex items-center gap-3 cursor-pointer group">
-                    <div className="w-5 h-5 rounded border-2 border-primary transition-colors flex items-center justify-center bg-primary">
-                      <span className="material-symbols-outlined text-on-primary text-xs" style={{ fontVariationSettings: "'wght' 700" }}>check</span>
+                    <span className={`font-medium ${filterType.includes('bus') ? 'font-bold text-on-surface' : 'text-on-surface-variant'}`}>Bus</span>
+                  </button>
+                  <button 
+                    onClick={() => handleFilterToggle('train')}
+                    className="w-full flex items-center gap-3 cursor-pointer group bg-transparent border-none text-left p-0"
+                  >
+                    <div className={`w-5 h-5 rounded border-2 transition-colors flex items-center justify-center ${filterType.includes('train') ? 'border-primary bg-primary' : 'border-outline group-hover:border-primary bg-surface-container-lowest'}`}>
+                      {filterType.includes('train') && <span className="material-symbols-outlined text-on-primary text-xs" style={{ fontVariationSettings: "'wght' 700" }}>check</span>}
                     </div>
-                    <span className="font-bold text-on-surface">Train</span>
-                  </label>
-                  <label className="flex items-center gap-3 cursor-pointer group">
-                    <div className="w-5 h-5 rounded border-2 border-outline group-hover:border-primary transition-colors flex items-center justify-center bg-surface-container-lowest">
-                      <div className="w-2.5 h-2.5 bg-primary rounded-sm opacity-0"></div>
+                    <span className={`font-medium ${filterType.includes('train') ? 'font-bold text-on-surface' : 'text-on-surface-variant'}`}>Train</span>
+                  </button>
+                  <button 
+                    onClick={() => handleFilterToggle('launch')}
+                    className="w-full flex items-center gap-3 cursor-pointer group bg-transparent border-none text-left p-0"
+                  >
+                    <div className={`w-5 h-5 rounded border-2 transition-colors flex items-center justify-center ${filterType.includes('launch') ? 'border-primary bg-primary' : 'border-outline group-hover:border-primary bg-surface-container-lowest'}`}>
+                      {filterType.includes('launch') && <span className="material-symbols-outlined text-on-primary text-xs" style={{ fontVariationSettings: "'wght' 700" }}>check</span>}
                     </div>
-                    <span className="font-medium text-on-surface">Ship / Launch</span>
-                  </label>
+                    <span className={`font-medium ${filterType.includes('launch') ? 'font-bold text-on-surface' : 'text-on-surface-variant'}`}>Ship / Launch</span>
+                  </button>
                 </div>
               </div>
               {/* Price Range */}
@@ -188,52 +256,6 @@ export default function SearchResults() {
 
           {/* Results List */}
           <section className="lg:col-span-9 space-y-6">
-            {/* Sorting Bar */}
-            <div className="flex items-center gap-4 overflow-x-auto pb-2 scrollbar-hide">
-              <span className="text-sm font-bold text-on-surface-variant whitespace-nowrap">Sort by:</span>
-              <button
-                onClick={() => setSortBy('price')}
-                className={`px-5 py-2 rounded-full font-bold text-sm whitespace-nowrap transition-all ${
-                  sortBy === 'price'
-                    ? 'bg-primary text-on-primary shadow-md'
-                    : 'bg-surface-container-highest text-on-surface'
-                }`}
-              >
-                Price (Low to High)
-              </button>
-              <button
-                onClick={() => setSortBy('earliest')}
-                className={`px-5 py-2 rounded-full font-bold text-sm whitespace-nowrap transition-all ${
-                  sortBy === 'earliest'
-                    ? 'bg-primary text-on-primary shadow-md'
-                    : 'bg-surface-container-highest text-on-surface'
-                }`}
-              >
-                Earliest Departure
-              </button>
-              <button
-                onClick={() => setSortBy('duration')}
-                className={`px-5 py-2 rounded-full font-bold text-sm whitespace-nowrap transition-all ${
-                  sortBy === 'duration'
-                    ? 'bg-primary text-on-primary shadow-md'
-                    : 'bg-surface-container-highest text-on-surface'
-                }`}
-              >
-                Duration
-              </button>
-              <button
-                onClick={() => setSortBy('rated')}
-                className={`px-5 py-2 rounded-full font-bold text-sm whitespace-nowrap transition-all ${
-                  sortBy === 'rated'
-                    ? 'bg-primary text-on-primary shadow-md'
-                    : 'bg-surface-container-highest text-on-surface'
-                }`}
-              >
-                Top Rated
-              </button>
-            </div>
-
-            {/* Dynamic Card Rendering */}
             {loading && (
               <div className="text-center py-20 text-on-surface-variant font-medium">
                 Searching routes...
@@ -242,93 +264,190 @@ export default function SearchResults() {
             {error && (
               <div className="text-center py-20 text-error font-medium">{error}</div>
             )}
-            {!loading && !error && sortedOperators.map((op, idx) => (
-              <div
-                key={idx}
-                onClick={() => handleSelectOperator(op)}
-                className={`bg-surface-container-lowest rounded-lg editorial-shadow overflow-hidden group cursor-pointer transition-all ${
-                  selectedTransport === op ? 'ring-2 ring-primary' : ''
-                }`}
-              >
-                <div className="p-8 flex flex-col md:flex-row gap-8">
-                  <div className="md:w-1/4 flex items-start gap-4">
-                    <div className="w-16 h-16 rounded-xl bg-surface-container-low flex items-center justify-center">
-                      <span className="material-symbols-outlined text-3xl text-on-surface-variant">
-                        {op.mode === 'train' ? 'train' :
-                         op.mode === 'ship' || op.mode === 'launch' ? 'directions_boat' :
-                         'directions_bus'}
-                      </span>
-                    </div>
-                    <div>
-                      <h4 className="font-headline font-bold text-on-surface">{op.operator_name}</h4>
-                      <p className="text-xs font-bold text-secondary mt-1">
-                        {op.mode?.toUpperCase()} • {op.leg?.from} → {op.leg?.to}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex-1 grid grid-cols-1 md:grid-cols-3 items-center gap-6">
-                    <div className="text-center">
-                      <h4 className="text-xl font-headline font-bold text-on-surface">
-                        {op.schedules?.[0]?.departure || '--:--'}
-                      </h4>
-                      <p className="text-xs font-medium text-on-surface-variant">{op.leg?.from}</p>
-                    </div>
-                    <div className="flex flex-col items-center">
-                      <span className="text-xs font-bold text-on-surface-variant mb-1">
-                        {op.schedules?.[0]?.duration_hours}h
-                      </span>
-                      <div className="w-full flex items-center gap-2">
-                        <div className="h-[1px] flex-1 border-t-2 border-dashed border-outline-variant"></div>
-                        <span className="material-symbols-outlined text-outline-variant">schedule</span>
-                        <div className="h-[1px] flex-1 border-t-2 border-dashed border-outline-variant"></div>
+            {!loading && !error && results?.forward_legs?.map((leg, index) => {
+              const isCompleted = selectedPerLeg[index] !== undefined
+              const isActive = activeLegIndex === index
+              const isLocked = index > activeLegIndex
+
+              // Completed Leg State
+              if (isCompleted) {
+                const op = selectedPerLeg[index]
+                const cheapestSeat = op.seat_types?.[0]
+                return (
+                  <div key={index} className="bg-surface-container p-6 rounded-2xl flex items-center justify-between transition-all">
+                    <div className="flex items-center gap-4">
+                      <span className="material-symbols-outlined text-primary text-2xl font-bold">check_circle</span>
+                      <div>
+                        <h4 className="font-headline font-bold text-lg text-on-surface">
+                          Leg {index + 1}: {leg.from} → {leg.to} ({leg.mode?.toUpperCase()})
+                        </h4>
+                        <p className="text-sm text-on-surface-variant">
+                          {op.operator_name} • {op.schedules?.[0]?.departure} - {op.schedules?.[0]?.arrival} • ৳ {cheapestSeat?.price?.toLocaleString() || '0'} ({cheapestSeat?.type})
+                        </p>
                       </div>
                     </div>
-                    <div className="text-center">
-                      <h4 className="text-xl font-headline font-bold text-on-surface">
-                        {op.schedules?.[0]?.arrival || '--:--'}
-                      </h4>
-                      <p className="text-xs font-medium text-on-surface-variant">{op.leg?.to}</p>
+                    <button 
+                      onClick={() => handleChange(index)}
+                      className="px-5 py-2 rounded-full hover:bg-surface-container-high text-primary font-bold transition-all text-sm border-none bg-transparent"
+                    >
+                      Change
+                    </button>
+                  </div>
+                )
+              }
+
+              // Active Leg State
+              if (isActive) {
+                return (
+                  <div key={index} className="bg-surface-container-low p-8 rounded-2xl space-y-6 transition-all ring-1 ring-primary/20">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+                      <div>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-primary mb-1 block">Active Selection</span>
+                        <h3 className="font-headline font-extrabold text-2xl text-on-surface">
+                          Leg {index + 1}: {leg.from} → {leg.to}
+                        </h3>
+                        <p className="text-xs text-on-surface-variant font-medium mt-1">
+                          Mode: <span className="uppercase font-bold text-primary">{leg.mode}</span> • Est: {leg.estimated_hours} hours
+                        </p>
+                      </div>
+                      
+                      {/* Scoped Sort Chips */}
+                      <div className="flex items-center gap-2 bg-surface-container-low p-1 rounded-full border border-outline-variant/15 self-start">
+                        <button
+                          onClick={() => setSortBy('price')}
+                          className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all border-none ${
+                            sortBy === 'price'
+                              ? 'bg-primary text-on-primary shadow-sm'
+                              : 'text-on-surface-variant hover:text-on-surface bg-transparent'
+                          }`}
+                        >
+                          Price
+                        </button>
+                        <button
+                          onClick={() => setSortBy('earliest')}
+                          className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all border-none ${
+                            sortBy === 'earliest'
+                              ? 'bg-primary text-on-primary shadow-sm'
+                              : 'text-on-surface-variant hover:text-on-surface bg-transparent'
+                          }`}
+                        >
+                          Earliest
+                        </button>
+                        <button
+                          onClick={() => setSortBy('duration')}
+                          className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all border-none ${
+                            sortBy === 'duration'
+                              ? 'bg-primary text-on-primary shadow-sm'
+                              : 'text-on-surface-variant hover:text-on-surface bg-transparent'
+                          }`}
+                        >
+                          Duration
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Operators List */}
+                    <div className="space-y-4">
+                      {rawOperators.length === 0 ? (
+                        <div className="text-center py-10 bg-surface-container-lowest rounded-xl p-6">
+                          <span className="material-symbols-outlined text-5xl text-on-surface-variant mb-4">
+                            {leg.mode === 'train' ? 'train' : leg.mode === 'launch' || leg.mode === 'ship' ? 'directions_boat' : 'directions_bus'}
+                          </span>
+                          <h4 className="font-headline font-bold text-lg mb-2">No operators available</h4>
+                          <p className="text-sm text-on-surface-variant max-w-md mx-auto">
+                            We couldn't find any {leg.mode} operators for this leg. Try searching a different route.
+                          </p>
+                        </div>
+                      ) : filteredOperators.length === 0 ? (
+                        <div className="text-center py-10 bg-surface-container-lowest rounded-xl p-6">
+                          <span className="material-symbols-outlined text-5xl text-on-surface-variant mb-4">filter_list_off</span>
+                          <h4 className="font-headline font-bold text-lg mb-2">No {leg.mode} operators available for this leg.</h4>
+                          <p className="text-sm text-on-surface-variant max-w-md mx-auto">
+                            Try a different filter or select from available options.
+                          </p>
+                        </div>
+                      ) : (
+                        sortedOperators.map((op, idx) => (
+                          <div
+                            key={idx}
+                            className="bg-surface-container-lowest rounded-2xl p-6 flex flex-col md:flex-row gap-6 items-center justify-between hover:shadow-md transition-all border border-transparent"
+                          >
+                            <div className="flex items-center gap-4 w-full md:w-auto">
+                              <div className="w-12 h-12 rounded-xl bg-surface-container-low flex items-center justify-center shrink-0">
+                                <span className="material-symbols-outlined text-2xl text-on-surface-variant">
+                                  {leg.mode === 'train' ? 'train' : leg.mode === 'launch' || leg.mode === 'ship' ? 'directions_boat' : 'directions_bus'}
+                                </span>
+                              </div>
+                              <div>
+                                <h4 className="font-headline font-bold text-on-surface text-lg">{op.operator_name}</h4>
+                                <p className="text-xs font-semibold text-on-surface-variant">
+                                  {leg.mode?.toUpperCase()} • {leg.from} → {leg.to}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex-1 grid grid-cols-3 items-center gap-4 w-full text-center">
+                              <div>
+                                <h5 className="text-lg font-headline font-bold text-on-surface">
+                                  {op.schedules?.[0]?.departure || '--:--'}
+                                </h5>
+                                <p className="text-[10px] text-on-surface-variant font-medium">{leg.from}</p>
+                              </div>
+                              <div className="flex flex-col items-center">
+                                <span className="text-[10px] font-bold text-on-surface-variant mb-1">
+                                  {op.schedules?.[0]?.duration_hours}h
+                                </span>
+                                <div className="w-full flex items-center gap-2">
+                                  <div className="h-[1px] flex-1 border-t border-dashed border-outline-variant"></div>
+                                  <span className="material-symbols-outlined text-outline-variant text-sm">schedule</span>
+                                  <div className="h-[1px] flex-1 border-t border-dashed border-outline-variant"></div>
+                                </div>
+                              </div>
+                              <div>
+                                <h5 className="text-lg font-headline font-bold text-on-surface">
+                                  {op.schedules?.[0]?.arrival || '--:--'}
+                                </h5>
+                                <p className="text-[10px] text-on-surface-variant font-medium">{leg.to}</p>
+                              </div>
+                            </div>
+
+                            <div className="flex flex-col items-center md:items-end gap-2 w-full md:w-auto">
+                              <div className="flex flex-wrap gap-2 justify-center md:justify-end">
+                                {op.seat_types?.map((st, sIdx) => (
+                                  <div key={sIdx} className="text-xs bg-surface-container-low px-2.5 py-1 rounded-lg">
+                                    <span className="text-on-surface-variant font-medium">{st.type}: </span>
+                                    <span className="font-bold text-on-surface">৳ {st.price}</span>
+                                  </div>
+                                ))}
+                              </div>
+                              <button
+                                onClick={() => handleSelect(op)}
+                                className="w-full md:w-36 mt-2 font-bold py-2.5 rounded-full bg-gradient-to-br from-primary to-primary-container text-on-primary hover:scale-[1.02] active:scale-98 transition-all text-sm border-none shadow-sm"
+                              >
+                                Select
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
-                  <div className="md:w-48 flex flex-col justify-center items-center md:items-end gap-3">
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-on-surface-variant">Starts from</p>
-                      <h3 className="text-2xl font-headline font-black text-on-surface">
-                        ৳ {op.seat_types?.[0]?.price?.toLocaleString() || 'N/A'}
-                      </h3>
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleSelectOperator(op)
-                      }}
-                      className={`w-full font-bold py-3 rounded-full transition-all ${
-                        selectedTransport === op
-                          ? 'bg-primary text-on-primary'
-                          : 'bg-gradient-to-br from-primary to-primary-container text-on-primary hover:scale-105'
-                      }`}
-                    >
-                      {selectedTransport === op ? '✓ Selected' : 'Select'}
-                    </button>
-                    {op.seat_types?.[0]?.available_seats <= 12 && (
-                      <span className="text-xs font-bold text-tertiary">
-                        Only {op.seat_types[0].available_seats} seats left
-                      </span>
-                    )}
+                )
+              }
+
+              // Locked Leg State
+              return (
+                <div key={index} className="bg-surface-container-low p-6 rounded-2xl opacity-50 flex items-center gap-4 select-none animate-pulse">
+                  <span className="material-symbols-outlined text-on-surface-variant text-2xl">lock</span>
+                  <div>
+                    <h4 className="font-headline font-bold text-lg text-on-surface-variant">
+                      Leg {index + 1}: {leg.from} → {leg.to} ({leg.mode?.toUpperCase()})
+                    </h4>
+                    <p className="text-xs text-on-surface-variant">Complete previous leg first</p>
                   </div>
                 </div>
-              </div>
-            ))}
-
-            {/* Pagination/Load More */}
-            {!loading && !error && (
-              <div className="pt-10 flex flex-col items-center">
-                <button className="px-8 py-4 rounded-full bg-surface-container-low text-on-surface font-bold flex items-center gap-3 hover:bg-surface-container-highest transition-colors">
-                  Show more results
-                  <span className="material-symbols-outlined">expand_more</span>
-                </button>
-              </div>
-            )}
+              )
+            })}
           </section>
         </div>
       </main>
@@ -336,32 +455,32 @@ export default function SearchResults() {
       <Footer />
 
       {/* Floating Selection Bar */}
-      {selectedTransport && (
+      {allLegsSelected && (
         <div className="fixed bottom-0 left-0 right-0 z-50 p-4 md:p-6 bg-surface-container-lowest/80 backdrop-blur-xl border-t border-outline/10 shadow-[0_-10px_40px_-15px_rgba(0,106,78,0.15)]">
           <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-6">
               <div className="hidden sm:flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 text-primary">
-                <span className="material-symbols-outlined">flight_takeoff</span>
+                <span className="material-symbols-outlined">check_circle</span>
               </div>
               <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Departure Selected</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">All Legs Selected</p>
                 <div className="flex items-center gap-3">
                   <span className="font-headline font-extrabold text-on-surface text-lg">
-                    {selectedTransport.operator_name}
+                    {results?.forward_legs?.length} legs selected
                   </span>
                   <span className="text-on-surface-variant font-medium">
-                    • {selectedTransport.schedules?.[0]?.departure} - {selectedTransport.schedules?.[0]?.arrival}
+                    • Total Cost
                   </span>
-                  <span className="font-bold text-primary ml-2">
-                    ৳ {selectedTransport.seat_types?.[0]?.price?.toLocaleString()}
+                  <span className="font-bold text-primary ml-2 text-xl">
+                    ৳ {totalSum.toLocaleString()}
                   </span>
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-4 w-full md:w-auto">
+            <div className="flex items-center gap-4 w-full md:w-auto font-headline">
               <button
                 onClick={handleContinue}
-                className="flex-1 md:flex-none px-8 py-4 bg-primary text-on-primary font-bold rounded-full shadow-lg shadow-primary/20 hover:scale-105 transition-transform flex items-center justify-center gap-3"
+                className="w-full md:w-auto px-8 py-4 bg-primary text-on-primary font-bold rounded-full shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-98 transition-transform flex items-center justify-center gap-3 border-none cursor-pointer"
               >
                 Continue to Seat Selection
                 <span className="material-symbols-outlined">arrow_forward</span>

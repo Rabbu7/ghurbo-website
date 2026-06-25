@@ -22,7 +22,7 @@ export default function TripSummary() {
     }
   }
 
-  if (!selectedForwardLeg) {
+  if (!selectedForwardLeg || !Array.isArray(selectedForwardLeg) || selectedForwardLeg.length === 0) {
     return (
       <div className="bg-surface text-on-surface min-h-screen flex flex-col">
         <Navbar />
@@ -81,7 +81,7 @@ export default function TripSummary() {
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-xl bg-primary-container flex items-center justify-center">
                     <span className="material-symbols-outlined text-on-primary-container">
-                      {getModeIcon(selectedForwardLeg.mode)}
+                      {getModeIcon(selectedForwardLeg[0]?.mode)}
                     </span>
                   </div>
                   <div>
@@ -89,40 +89,46 @@ export default function TripSummary() {
                     <p className="text-on-surface-variant text-sm">{searchParams.date}</p>
                   </div>
                 </div>
-                <button onClick={() => navigate('/search')} className="text-primary font-bold text-sm hover:underline">
+                <button onClick={() => navigate('/search')} className="text-primary font-bold text-sm hover:underline border-none bg-transparent cursor-pointer">
                   Edit
                 </button>
               </div>
-              <div className="flex flex-col md:flex-row justify-between items-center py-4 bg-surface-container-low rounded-xl px-6">
-                <div className="text-center md:text-left">
-                  <p className="text-lg font-bold text-on-surface">{searchParams.origin}</p>
-                </div>
-                <div className="flex flex-col items-center flex-1 px-8 gap-2 py-4 md:py-0">
-                  <p className="text-xs font-bold text-primary">{selectedForwardLeg.operator_name}</p>
-                  <div className="w-full h-[2px] bg-outline-variant/30 relative flex items-center justify-center my-2">
-                    <span className="material-symbols-outlined text-primary text-lg bg-surface-container-low px-2 leading-none">
-                      {getModeIcon(selectedForwardLeg.mode)}
-                    </span>
+
+              <div className="flex flex-col gap-4">
+                {selectedForwardLeg.map((leg, i) => (
+                  <div key={i} className="flex flex-col md:flex-row justify-between items-center py-3 bg-surface-container-low rounded-xl px-6 gap-2">
+                    <div className="text-center md:text-left">
+                      <p className="text-sm font-bold text-on-surface">{leg.leg?.from || leg.from}</p>
+                    </div>
+                    <div className="flex flex-col items-center flex-1 px-4 gap-1">
+                      <p className="text-xs font-bold text-primary">{leg.operator_name}</p>
+                      <div className="w-full h-[2px] bg-outline-variant/30 relative flex items-center justify-center my-1">
+                        <span className="material-symbols-outlined text-primary text-base bg-surface-container-low px-2 leading-none">
+                          {getModeIcon(leg.mode)}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-on-surface-variant">
+                        {leg.schedules?.[0]?.departure || '--:--'} — {leg.schedules?.[0]?.arrival || '--:--'}
+                      </p>
+                    </div>
+                    <div className="text-center md:text-right">
+                      <p className="text-sm font-bold text-on-surface">{leg.leg?.to || leg.to}</p>
+                    </div>
                   </div>
-                  <p className="text-[10px] text-on-surface-variant">
-                    {selectedForwardLeg.schedules?.[0]?.departure || '--:--'} — {selectedForwardLeg.schedules?.[0]?.arrival || '--:--'}
-                  </p>
-                </div>
-                <div className="text-center md:text-right">
-                  <p className="text-lg font-bold text-on-surface">{searchParams.destination}</p>
-                </div>
+                ))}
               </div>
+
               <div className="mt-4 flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-2 bg-primary-container/30 px-3 py-1.5 rounded-full">
                   <span className="material-symbols-outlined text-primary text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>event_seat</span>
                   <span className="text-xs font-bold text-on-surface">
-                    {selectedForwardLeg.selectedSeatType?.type || 'Standard'}
+                    {selectedForwardLeg[0]?.selectedSeatType?.type || 'Standard'}
                   </span>
                 </div>
-                {selectedForwardLeg.selectedSeats && selectedForwardLeg.selectedSeats.length > 0 && (
+                {selectedForwardLeg.some(l => l.selectedSeats && l.selectedSeats.length > 0) && (
                   <div className="flex items-center gap-2 bg-surface-container-high px-3 py-1.5 rounded-full">
                     <span className="text-xs font-bold text-on-surface-variant">
-                      Seats: {selectedForwardLeg.selectedSeats.join(', ')}
+                      Seats: {selectedForwardLeg.flatMap(l => l.selectedSeats || []).join(', ')}
                     </span>
                   </div>
                 )}
@@ -136,7 +142,7 @@ export default function TripSummary() {
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-secondary-container flex items-center justify-center">
                       <span className="material-symbols-outlined text-on-secondary-container">
-                        {selectedReturnLeg ? getModeIcon(selectedReturnLeg.mode) : 'directions_bus'}
+                        {getModeIcon(selectedReturnLeg?.[0]?.mode)}
                       </span>
                     </div>
                     <div>
@@ -144,43 +150,46 @@ export default function TripSummary() {
                       <p className="text-on-surface-variant text-sm">{searchParams.returnDate}</p>
                     </div>
                   </div>
-                  <button onClick={() => navigate('/search/return')} className="text-primary font-bold text-sm hover:underline">
+                  <button onClick={() => navigate('/search/return')} className="text-primary font-bold text-sm hover:underline border-none bg-transparent cursor-pointer">
                     Edit
                   </button>
                 </div>
-                <div className="flex flex-col md:flex-row justify-between items-center py-4 bg-surface-container-low rounded-xl px-6">
-                  <div className="text-center md:text-left">
-                    <p className="text-lg font-bold text-on-surface">{searchParams.destination}</p>
-                  </div>
-                  <div className="flex flex-col items-center flex-1 px-8 gap-2 py-4 md:py-0">
-                    <p className="text-xs font-bold text-on-secondary-container">
-                      {selectedReturnLeg?.operator_name || 'No Return Selected'}
-                    </p>
-                    <div className="w-full h-[2px] bg-outline-variant/30 relative flex items-center justify-center my-2">
-                      <span className="material-symbols-outlined text-on-secondary-container text-sm bg-surface-container-low px-2 leading-none">
-                        {selectedReturnLeg ? getModeIcon(selectedReturnLeg.mode) : 'directions_bus'}
-                      </span>
+
+                <div className="flex flex-col gap-4">
+                  {selectedReturnLeg?.map((leg, i) => (
+                    <div key={i} className="flex flex-col md:flex-row justify-between items-center py-3 bg-surface-container-low rounded-xl px-6 gap-2">
+                      <div className="text-center md:text-left">
+                        <p className="text-sm font-bold text-on-surface">{leg.leg?.from || leg.from}</p>
+                      </div>
+                      <div className="flex flex-col items-center flex-1 px-4 gap-1">
+                        <p className="text-xs font-bold text-on-secondary-container">{leg.operator_name}</p>
+                        <div className="w-full h-[2px] bg-outline-variant/30 relative flex items-center justify-center my-1">
+                          <span className="material-symbols-outlined text-on-secondary-container text-base bg-surface-container-low px-2 leading-none">
+                            {getModeIcon(leg.mode)}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-on-surface-variant">
+                          {leg.schedules?.[0]?.departure || '--:--'} — {leg.schedules?.[0]?.arrival || '--:--'}
+                        </p>
+                      </div>
+                      <div className="text-center md:text-right">
+                        <p className="text-sm font-bold text-on-surface">{leg.leg?.to || leg.to}</p>
+                      </div>
                     </div>
-                    <p className="text-[10px] text-on-surface-variant">
-                      {selectedReturnLeg?.schedules?.[0]?.departure || '--:--'} — {selectedReturnLeg?.schedules?.[0]?.arrival || '--:--'}
-                    </p>
-                  </div>
-                  <div className="text-center md:text-right">
-                    <p className="text-lg font-bold text-on-surface">{searchParams.origin}</p>
-                  </div>
+                  ))}
                 </div>
 
                 <div className="mt-4 flex flex-wrap items-center gap-3">
                   <div className="flex items-center gap-2 bg-secondary-container/30 px-3 py-1.5 rounded-full">
                     <span className="material-symbols-outlined text-on-secondary-container text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>event_seat</span>
                     <span className="text-xs font-bold text-on-surface">
-                      {selectedReturnLeg?.selectedSeatType?.type || 'Standard'}
+                      {selectedReturnLeg?.[0]?.selectedSeatType?.type || 'Standard'}
                     </span>
                   </div>
-                  {selectedReturnLeg?.selectedSeats && selectedReturnLeg.selectedSeats.length > 0 && (
+                  {selectedReturnLeg && selectedReturnLeg.some(l => l.selectedSeats && l.selectedSeats.length > 0) && (
                     <div className="flex items-center gap-2 bg-surface-container-high px-3 py-1.5 rounded-full">
                       <span className="text-xs font-bold text-on-surface-variant">
-                        Seats: {selectedReturnLeg.selectedSeats.join(', ')}
+                        Seats: {selectedReturnLeg.flatMap(l => l.selectedSeats || []).join(', ')}
                       </span>
                     </div>
                   )}
@@ -205,7 +214,7 @@ export default function TripSummary() {
                   <div>
                     <div className="flex justify-between items-start">
                       <h3 className="text-xl font-bold leading-tight font-headline">{selectedHotel.hotel_name}</h3>
-                      <button onClick={() => navigate('/hotels')} className="text-primary font-bold text-sm hover:underline">
+                      <button onClick={() => navigate('/hotels')} className="text-primary font-bold text-sm hover:underline border-none bg-transparent cursor-pointer">
                         Edit
                       </button>
                     </div>
@@ -226,7 +235,7 @@ export default function TripSummary() {
                 <div>
                   <div className="flex justify-between items-start mb-4">
                     <h3 className="text-xl font-bold leading-tight text-on-surface font-headline">Accommodation</h3>
-                    <button onClick={() => navigate('/hotels')} className="text-primary font-bold text-sm hover:underline">
+                    <button onClick={() => navigate('/hotels')} className="text-primary font-bold text-sm hover:underline border-none bg-transparent cursor-pointer">
                       Edit
                     </button>
                   </div>
@@ -254,12 +263,12 @@ export default function TripSummary() {
               </h3>
               <div className="space-y-4">
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-on-surface-variant">Outbound ({selectedForwardLeg.operator_name})</span>
+                  <span className="text-on-surface-variant">Outbound ({selectedForwardLeg.map(l => l.operator_name).join(' + ')})</span>
                   <span className="font-bold">৳{(pricing?.forward_transport || 0).toLocaleString()}</span>
                 </div>
                 {isRoundTrip && selectedReturnLeg && (
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-on-surface-variant">Return ({selectedReturnLeg.operator_name})</span>
+                    <span className="text-on-surface-variant">Return ({selectedReturnLeg?.map(l => l.operator_name).join(' + ')})</span>
                     <span className="font-bold">৳{(pricing?.return_transport || 0).toLocaleString()}</span>
                   </div>
                 )}
@@ -293,7 +302,7 @@ export default function TripSummary() {
           </div>
           <button
             onClick={() => navigate('/booking/payment')}
-            className="w-full md:w-auto px-10 py-4 bg-gradient-to-r from-primary to-primary-container text-on-primary font-bold text-lg rounded-full shadow-lg hover:opacity-90 transition-opacity active:scale-[0.98] duration-200"
+            className="w-full md:w-auto px-10 py-4 bg-gradient-to-r from-primary to-primary-container text-on-primary font-bold text-lg rounded-full shadow-lg hover:opacity-90 transition-opacity active:scale-[0.98] duration-200 border-none cursor-pointer"
           >
             Confirm Booking
           </button>

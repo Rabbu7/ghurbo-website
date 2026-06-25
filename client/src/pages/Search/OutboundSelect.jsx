@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useBooking } from '../../context/BookingContext'
 import Navbar from '../../components/Navbar'
@@ -9,36 +9,55 @@ export default function OutboundSelect() {
   const navigate = useNavigate()
   const {
     searchParams,
-    forwardLegs,
     selectForwardLeg,
     selectedForwardLeg,
     setPricing,
   } = useBooking()
 
-  const [selectedOperator, setSelectedOperator] = useState(selectedForwardLeg || null)
-  const [selectedSeats, setSelectedSeats] = useState([])
-  const [selectedSeatType, setSelectedSeatType] = useState(
-    selectedForwardLeg?.seat_types?.[0] || null
-  )
+  const [legSeatSelections, setLegSeatSelections] = useState({})
+  const [activeLegIndex, setActiveLegIndex] = useState(0)
 
-  // Flatten all operators from all forward legs
-  const allOperators = forwardLegs?.flatMap(leg =>
-    (leg.operators || []).map(op => ({ ...op, leg }))
-  ) || []
+  // Guard: redirect to search page if selectedForwardLeg is invalid
+  useEffect(() => {
+    if (!selectedForwardLeg || !Array.isArray(selectedForwardLeg) || selectedForwardLeg.length === 0) {
+      navigate('/search')
+    }
+  }, [selectedForwardLeg, navigate])
 
-  // Generate a 2+2 seat grid (4 cols, 10 rows = 40 seats)
-  // Layout: [A, B, aisle, C, D] per row
-  const ROWS = 10
-  const generateSeats = () => {
+  // Initialize seat selections for all legs with default first seat type
+  useEffect(() => {
+    if (selectedForwardLeg && Array.isArray(selectedForwardLeg)) {
+      const initial = {}
+      selectedForwardLeg.forEach((op, i) => {
+        initial[i] = {
+          seats: [],
+          seatType: op.seat_types?.[0] || null
+        }
+      })
+      setLegSeatSelections(initial)
+      setActiveLegIndex(0)
+    }
+  }, [selectedForwardLeg])
+
+  if (!selectedForwardLeg || !Array.isArray(selectedForwardLeg) || selectedForwardLeg.length === 0) {
+    return null
+  }
+
+  // Generate deterministic seat grid per leg
+  const generateSeatsForLeg = (legIndex) => {
     const seatsList = []
-    // Randomly mark some as booked for demo
-    const bookedSeats = ['1A', '1B', '3C', '3D', '5A', '6B', '7C', '8D', '2A', '4C']
-    for (let r = 1; r <= ROWS; r++) {
+    const bookedPatterns = [
+      ['1A', '1B', '3C', '3D', '5A', '6B', '7C', '8D', '2A', '4C'],
+      ['2B', '2C', '4A', '4B', '6C', '6D', '8A', '9B', '10C', '5D'],
+      ['1C', '1D', '3A', '3B', '5C', '5D', '7A', '7B', '9C', '9D']
+    ]
+    const booked = bookedPatterns[legIndex % bookedPatterns.length]
+    for (let r = 1; r <= 10; r++) {
       ['A', 'B', 'C', 'D'].forEach(col => {
         const id = `${r}${col}`
         seatsList.push({
           id,
-          booked: bookedSeats.includes(id),
+          booked: booked.includes(id),
           row: r,
           col,
         })
@@ -46,43 +65,74 @@ export default function OutboundSelect() {
     }
     return seatsList
   }
-  const seats = generateSeats()
+
+  const activeLegSeats = generateSeatsForLeg(activeLegIndex)
+  const activeLeg = selectedForwardLeg[activeLegIndex]
 
   const toggleSeat = (seat) => {
     if (seat.booked) return
-    setSelectedSeats(prev =>
-      prev.find(s => s.id === seat.id)
-        ? prev.filter(s => s.id !== seat.id)
-        : [...prev, seat]
-    )
+    setLegSeatSelections(prev => {
+      const current = prev[activeLegIndex] || { seats: [], seatType: null }
+      const exists = current.seats.find(s => s.id === seat.id)
+      const nextSeats = exists
+        ? current.seats.filter(s => s.id !== seat.id)
+        : [...current.seats, seat]
+      return {
+        ...prev,
+        [activeLegIndex]: {
+          ...current,
+          seats: nextSeats
+        }
+      }
+    })
   }
 
-  const handleSelectOperator = (op) => {
-    if (selectedOperator !== op) {
-      setSelectedOperator(op)
-      setSelectedSeats([]) // reset seats when operator changes
-      // Default to first seat type
-      setSelectedSeatType(op.seat_types?.[0] || null)
-    }
+  const selectSeatType = (legIndex, seatType) => {
+    setLegSeatSelections(prev => {
+      const current = prev[legIndex] || { seats: [] }
+      const seats = current.seatType?.type === seatType.type ? current.seats : []
+      return {
+        ...prev,
+        [legIndex]: {
+          ...current,
+          seatType,
+          seats
+        }
+      }
+    })
   }
 
-  const pricePerSeat = selectedSeatType?.price || 0
-  const totalFare = pricePerSeat * (selectedSeats.length || 0)
+  const totalSum = Object.values(legSeatSelections).reduce((sum, item) => {
+    const price = item.seatType?.price || 0
+    const count = item.seats?.length || 0
+    return sum + (price * count)
+  }, 0)
+
+  const canProceed = selectedForwardLeg.length > 0 && selectedForwardLeg.every((_, i) => {
+    const sel = legSeatSelections[i]
+    return sel && sel.seats && sel.seats.length > 0
+  })
 
   const handleProceed = () => {
-    if (!selectedOperator || selectedSeats.length === 0) return
-    selectForwardLeg({
-      ...selectedOperator,
-      selectedSeats: selectedSeats.map(s => s.id),
-      selectedSeatType,
-      totalFare,
-    })
+    if (!canProceed) return
+
+    const enrichedLegs = selectedForwardLeg.map((op, i) => ({
+      ...op,
+      selectedSeats: legSeatSelections[i].seats.map(s => s.id),
+      selectedSeatType: legSeatSelections[i].seatType,
+      totalFare: legSeatSelections[i].seatType.price * legSeatSelections[i].seats.length,
+    }))
+
+    selectForwardLeg(enrichedLegs)
+    const forward_transport = enrichedLegs.reduce((sum, leg) => sum + (leg.totalFare || 0), 0)
+
     setPricing({
-      forward_transport: totalFare,
+      forward_transport,
       hotel_total: 0,
       return_transport: 0,
-      grand_total: totalFare,
+      grand_total: forward_transport,
     })
+
     if (searchParams.tripType === 'round_trip') {
       navigate('/search/return')
     } else {
@@ -102,269 +152,246 @@ export default function OutboundSelect() {
         .editorial-shadow {
           box-shadow: 0 40px 40px -5px rgba(0, 54, 44, 0.06);
         }
-        .glass-nav {
-          background: rgba(215, 255, 243, 0.7);
-          backdrop-filter: blur(24px);
-        }
       `}</style>
 
       <Navbar />
 
-      <main className="pt-24 pb-12 px-4 md:px-12 max-w-7xl mx-auto flex-grow">
+      <main className="pt-28 pb-12 px-4 md:px-12 max-w-7xl mx-auto flex-grow w-full">
         {/* Header Section */}
         <header className="mb-12">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div>
-              <span className="text-on-surface-variant font-bold uppercase tracking-widest text-xs mb-2 block">Route Selection</span>
-              <h1 className="text-4xl md:text-5xl font-headline font-extrabold tracking-tight text-on-surface">
-                {searchParams.origin || ''} to {searchParams.destination || ''}
-              </h1>
-              <p className="text-on-surface-variant mt-2 text-lg">
-                {searchParams.date || ''} • 1 Passenger
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <button className="flex items-center gap-2 bg-surface-container-low px-5 py-3 rounded-xl font-medium hover:bg-surface-container-high transition-colors">
-                <span className="material-symbols-outlined" data-icon="filter_list">filter_list</span>
-                Filters
-              </button>
-              <button className="flex items-center gap-2 bg-surface-container-low px-5 py-3 rounded-xl font-medium hover:bg-surface-container-high transition-colors">
-                <span className="material-symbols-outlined" data-icon="swap_vert">swap_vert</span>
-                Sort by Price
-              </button>
-            </div>
+          <div>
+            <span className="text-on-surface-variant font-bold uppercase tracking-widest text-xs mb-2 block">Seat Selection</span>
+            <h1 className="text-4xl md:text-5xl font-headline font-extrabold tracking-tight text-on-surface">
+              {searchParams.origin || ''} to {searchParams.destination || ''}
+            </h1>
+            <p className="text-on-surface-variant mt-2 text-lg">
+              {searchParams.date || ''} • Outbound Leg Journey
+            </p>
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Transport List */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* Transport Summary List */}
           <div className="lg:col-span-7 space-y-6">
-            {allOperators.length === 0 && (
-              <div className="text-center py-20 text-on-surface-variant">
-                No operators available. Go back and search again.
-              </div>
-            )}
-
-            {allOperators.map((op, idx) => (
-              <div
-                key={idx}
-                onClick={() => handleSelectOperator(op)}
-                className={`rounded-lg p-6 flex flex-col gap-6 cursor-pointer transition-colors ${
-                  selectedOperator === op
-                    ? 'bg-surface-container-lowest editorial-shadow ring-2 ring-primary'
-                    : 'bg-surface-container-low hover:bg-surface-container-high'
-                }`}
-              >
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-16 h-16 rounded-xl flex items-center justify-center text-primary ${
-                      selectedOperator === op
-                        ? 'bg-surface-container-high'
-                        : 'bg-surface-container-lowest'
-                    }`}>
-                      <span className="material-symbols-outlined text-4xl"
-                        style={{ fontVariationSettings: selectedOperator === op ? "'FILL' 1" : "'FILL' 0" }}>
-                        {op.mode === 'train' ? 'train' :
-                         op.mode === 'ship' || op.mode === 'launch' ? 'directions_boat' :
-                         'directions_bus'}
-                      </span>
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-headline font-bold">{op.operator_name}</h3>
-                      <div className="flex items-center gap-2 text-on-surface-variant text-sm mt-1">
-                        <span className="material-symbols-outlined text-sm"
-                          style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                        <span className="font-bold text-on-surface">4.5</span>
-                        <span>(reviews)</span>
+            {selectedForwardLeg.map((op, i) => {
+              const isCompleted = legSeatSelections[i] && legSeatSelections[i].seats.length > 0
+              const isActive = activeLegIndex === i
+              return (
+                <div
+                  key={i}
+                  onClick={() => setActiveLegIndex(i)}
+                  className={`rounded-2xl p-6 flex flex-col gap-4 cursor-pointer transition-all ${
+                    isActive
+                      ? 'bg-surface-container-lowest editorial-shadow ring-2 ring-primary'
+                      : 'bg-surface-container-low hover:bg-surface-container-high'
+                  }`}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-surface-container-low flex items-center justify-center shrink-0">
+                        <span className="material-symbols-outlined text-2xl text-on-surface-variant">
+                          {op.mode === 'train' ? 'train' : op.mode === 'launch' || op.mode === 'ship' ? 'directions_boat' : 'directions_bus'}
+                        </span>
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-headline font-bold flex items-center gap-2 text-on-surface">
+                          {op.operator_name}
+                          {isCompleted && (
+                            <span className="material-symbols-outlined text-primary text-lg font-bold">check_circle</span>
+                          )}
+                        </h3>
+                        <p className="text-xs text-on-surface-variant font-medium">
+                          Leg {i + 1}: {op.from} → {op.to}
+                        </p>
                       </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    {op.seat_types?.[0]?.available_seats <= 10 && (
-                      <span className="text-tertiary font-bold text-sm bg-tertiary-container/20 px-3 py-1 rounded-full">
-                        Only {op.seat_types[0].available_seats} seats left
-                      </span>
-                    )}
-                    <div className="text-2xl font-headline font-black text-primary mt-2">
-                      ৳{op.seat_types?.[0]?.price?.toLocaleString()}
+                    <div className="text-right">
+                      <p className="text-[10px] text-on-surface-variant font-black uppercase tracking-wider">
+                        {op.schedules?.[0]?.departure} - {op.schedules?.[0]?.arrival}
+                      </p>
+                      {isCompleted && (
+                        <span className="inline-block mt-1.5 bg-primary/10 text-primary text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                          Seats: {legSeatSelections[i].seats.map(s => s.id).join(', ')}
+                        </span>
+                      )}
                     </div>
                   </div>
-                </div>
-                <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-xl">
-                  <div className="text-center">
-                    <div className="text-lg font-bold">
-                      {op.schedules?.[0]?.departure || '--:--'}
-                    </div>
-                    <div className="text-xs text-on-surface-variant uppercase font-semibold">
-                      {op.leg?.from}
-                    </div>
-                  </div>
-                  <div className="flex-1 px-4 flex flex-col items-center">
-                    <div className="text-xs text-on-surface-variant mb-1">
-                      {op.schedules?.[0]?.duration_hours}h
-                    </div>
-                    <div className="w-full h-px bg-outline-variant relative">
-                      <div className="absolute -top-1 left-0 w-2 h-2 rounded-full bg-primary"></div>
-                      <div className="absolute -top-1 right-0 w-2 h-2 rounded-full bg-primary"></div>
-                    </div>
-                    <div className="text-xs font-medium text-primary mt-1">Direct</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-lg font-bold">
-                      {op.schedules?.[0]?.arrival || '--:--'}
-                    </div>
-                    <div className="text-xs text-on-surface-variant uppercase font-semibold">
-                      {op.leg?.to}
-                    </div>
+
+                  {/* Seat type selector buttons */}
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    {op.seat_types?.map((st, stIdx) => {
+                      const currentSelType = legSeatSelections[i]?.seatType
+                      const isSel = currentSelType?.type === st.type
+                      return (
+                        <button
+                          key={stIdx}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            selectSeatType(i, st)
+                            setActiveLegIndex(i)
+                          }}
+                          className={`px-3 py-1.5 text-xs font-semibold rounded-full border-none transition-colors cursor-pointer ${
+                            isSel
+                              ? 'bg-primary text-on-primary font-bold'
+                              : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high'
+                          }`}
+                        >
+                          {st.type} — ৳ {st.price}
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {op.seat_types?.map((st, i) => (
-                    <button
-                      key={i}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleSelectOperator(op)
-                        setSelectedSeatType(st)
-                      }}
-                      className={`px-3 py-1 text-xs font-semibold rounded-full flex items-center gap-1 transition-colors ${
-                        selectedSeatType === st && selectedOperator === op
-                          ? 'bg-primary text-on-primary'
-                          : 'bg-secondary-container text-on-secondary-container'
-                      }`}
-                    >
-                      {st.type}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
-          {/* Seat Selection Sidebar */}
+          {/* Seat Selection Map (Active Leg Only) */}
           <div className="lg:col-span-5">
-            <div className="bg-surface-container-lowest rounded-lg editorial-shadow p-8 sticky top-28">
-              <h2 className="text-2xl font-headline font-bold mb-6">
-                Select Your Seats {selectedOperator ? '— ' + selectedOperator.operator_name : ''}
-              </h2>
-              <div className="flex justify-center gap-8 mb-8 text-xs font-semibold uppercase tracking-wider">
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-8 h-8 rounded-md bg-surface-container-high"></div>
-                  <span>Available</span>
-                </div>
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-8 h-8 rounded-md bg-primary text-on-primary flex items-center justify-center">
-                    <span className="material-symbols-outlined text-sm">check</span>
+            {activeLeg && (
+              <div className="bg-surface-container-lowest rounded-2xl editorial-shadow p-8 sticky top-28">
+                <h2 className="text-2xl font-headline font-bold mb-2 text-on-surface">
+                  Seats for Leg {activeLegIndex + 1}
+                </h2>
+                <p className="text-xs text-on-surface-variant font-semibold uppercase tracking-wider mb-6">
+                  {activeLeg.from} → {activeLeg.to} • {activeLeg.operator_name}
+                </p>
+
+                {/* Legend */}
+                <div className="flex justify-center gap-6 mb-8 text-xs font-semibold uppercase tracking-wider">
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="w-8 h-8 rounded-md bg-surface-container-low"></div>
+                    <span>Available</span>
                   </div>
-                  <span>Selected</span>
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="w-8 h-8 rounded-md bg-primary text-on-primary flex items-center justify-center">
+                      <span className="material-symbols-outlined text-sm">check</span>
+                    </div>
+                    <span>Selected</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="w-8 h-8 rounded-md bg-error/15 relative">
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-full h-px bg-error/30 rotate-45"></div>
+                      </div>
+                    </div>
+                    <span>Booked</span>
+                  </div>
                 </div>
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-8 h-8 rounded-md bg-error-container/20 relative">
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-full h-px bg-error/30 rotate-45"></div>
+
+                {/* Seat Map */}
+                <div className="max-w-[280px] mx-auto bg-surface-container-low p-6 rounded-2xl relative mb-8">
+                  <div className="flex justify-end mb-6">
+                    <div className="w-10 h-10 rounded-full border-2 border-outline-variant flex items-center justify-center text-on-surface-variant">
+                      <span className="material-symbols-outlined text-xl">radio_button_checked</span>
                     </div>
                   </div>
-                  <span>Booked</span>
-                </div>
-              </div>
 
-              {/* Dynamic Seat Selection Map */}
-              <div className="max-w-[280px] mx-auto bg-surface-container-low p-6 rounded-xl relative">
-                {/* Driver */}
-                <div className="flex justify-end mb-6">
-                  <div className="w-10 h-10 rounded-full border-2 border-outline-variant flex items-center justify-center text-on-surface-variant">
-                    <span className="material-symbols-outlined">radio_button_checked</span>
+                  <div className="space-y-3">
+                    {Array.from({ length: 10 }, (_, rowIdx) => {
+                      const row = rowIdx + 1
+                      const leftSeats = activeLegSeats.filter(s => s.row === row && ['A', 'B'].includes(s.col))
+                      const rightSeats = activeLegSeats.filter(s => s.row === row && ['C', 'D'].includes(s.col))
+                      return (
+                        <div key={row} className="flex items-center gap-2">
+                          <span className="text-xs text-on-surface-variant w-4 text-right">{row}</span>
+                          <div className="flex gap-2">
+                            {leftSeats.map(seat => {
+                              const activeLegSel = legSeatSelections[activeLegIndex]
+                              const isSelected = activeLegSel?.seats?.some(s => s.id === seat.id)
+                              return (
+                                <button
+                                  key={seat.id}
+                                  onClick={() => toggleSeat(seat)}
+                                  disabled={seat.booked}
+                                  className={`w-10 h-10 rounded-md text-xs font-bold transition-all relative border-none cursor-pointer ${
+                                    seat.booked
+                                      ? 'bg-error/15 cursor-not-allowed text-error/30'
+                                      : isSelected
+                                      ? 'bg-primary text-on-primary shadow-lg shadow-primary/20'
+                                      : 'bg-surface-container-lowest hover:bg-primary-container text-on-surface'
+                                  }`}
+                                >
+                                  {seat.booked ? (
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                      <div className="w-full h-px bg-error/30 rotate-45"></div>
+                                    </div>
+                                  ) : isSelected ? (
+                                    <span className="material-symbols-outlined text-sm">check</span>
+                                  ) : (
+                                    seat.col
+                                  )}
+                                </button>
+                              )
+                            })}
+                          </div>
+                          <div className="w-4" /> {/* aisle */}
+                          <div className="flex gap-2">
+                            {rightSeats.map(seat => {
+                              const activeLegSel = legSeatSelections[activeLegIndex]
+                              const isSelected = activeLegSel?.seats?.some(s => s.id === seat.id)
+                              return (
+                                <button
+                                  key={seat.id}
+                                  onClick={() => toggleSeat(seat)}
+                                  disabled={seat.booked}
+                                  className={`w-10 h-10 rounded-md text-xs font-bold transition-all relative border-none cursor-pointer ${
+                                    seat.booked
+                                      ? 'bg-error/15 cursor-not-allowed text-error/30'
+                                      : isSelected
+                                      ? 'bg-primary text-on-primary shadow-lg shadow-primary/20'
+                                      : 'bg-surface-container-lowest hover:bg-primary-container text-on-surface'
+                                  }`}
+                                >
+                                  {seat.booked ? (
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                      <div className="w-full h-px bg-error/30 rotate-45"></div>
+                                    </div>
+                                  ) : isSelected ? (
+                                    <span className="material-symbols-outlined text-sm">check</span>
+                                  ) : (
+                                    seat.col
+                                  )}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
-                {/* Seat grid 2+2 layout */}
-                <div className="space-y-3">
-                  {Array.from({ length: ROWS }, (_, rowIdx) => {
-                    const row = rowIdx + 1
-                    const leftSeats = seats.filter(s => s.row === row && ['A', 'B'].includes(s.col))
-                    const rightSeats = seats.filter(s => s.row === row && ['C', 'D'].includes(s.col))
+
+                {/* Summary Footer */}
+                <div className="pt-6 border-t border-outline-variant/15 space-y-4">
+                  {selectedForwardLeg.map((op, idx) => {
+                    const sel = legSeatSelections[idx]
+                    const seatIds = sel?.seats?.map(s => s.id).join(', ') || 'None'
                     return (
-                      <div key={row} className="flex items-center gap-2">
-                        <span className="text-xs text-on-surface-variant w-4 text-right">{row}</span>
-                        <div className="flex gap-2">
-                          {leftSeats.map(seat => (
-                            <button
-                              key={seat.id}
-                              onClick={() => toggleSeat(seat)}
-                              disabled={seat.booked || !selectedOperator}
-                              className={`w-10 h-10 rounded-md text-xs font-bold transition-all relative ${
-                                seat.booked
-                                  ? 'bg-error-container/20 cursor-not-allowed'
-                                  : selectedSeats.find(s => s.id === seat.id)
-                                  ? 'bg-primary text-on-primary shadow-lg shadow-primary/20'
-                                  : 'bg-surface-container-high hover:bg-primary-container'
-                              }`}
-                            >
-                              {seat.booked ? (
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                  <div className="w-full h-px bg-error/30 rotate-45"></div>
-                                </div>
-                              ) : selectedSeats.find(s => s.id === seat.id)
-                                ? <span className="material-symbols-outlined text-sm">check</span>
-                                : seat.col}
-                            </button>
-                          ))}
-                        </div>
-                        <div className="w-4" /> {/* aisle */}
-                        <div className="flex gap-2">
-                          {rightSeats.map(seat => (
-                            <button
-                              key={seat.id}
-                              onClick={() => toggleSeat(seat)}
-                              disabled={seat.booked || !selectedOperator}
-                              className={`w-10 h-10 rounded-md text-xs font-bold transition-all relative ${
-                                seat.booked
-                                  ? 'bg-error-container/20 cursor-not-allowed'
-                                  : selectedSeats.find(s => s.id === seat.id)
-                                  ? 'bg-primary text-on-primary shadow-lg shadow-primary/20'
-                                  : 'bg-surface-container-high hover:bg-primary-container'
-                              }`}
-                            >
-                              {seat.booked ? (
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                  <div className="w-full h-px bg-error/30 rotate-45"></div>
-                                </div>
-                              ) : selectedSeats.find(s => s.id === seat.id)
-                                ? <span className="material-symbols-outlined text-sm">check</span>
-                                : seat.col}
-                            </button>
-                          ))}
-                        </div>
+                      <div key={idx} className="flex justify-between items-center text-xs">
+                        <span className="text-on-surface-variant font-medium">Leg {idx + 1} ({op.operator_name})</span>
+                        <span className="font-bold text-primary">{seatIds}</span>
                       </div>
                     )
                   })}
+                  <div className="flex justify-between items-center pt-2">
+                    <span className="text-xl font-headline font-bold text-on-surface">Total Fare</span>
+                    <span className="text-3xl font-headline font-black text-primary">
+                      ৳ {totalSum.toLocaleString()}
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleProceed}
+                    disabled={!canProceed}
+                    className="w-full bg-gradient-to-br from-primary to-primary-container text-on-primary py-4 rounded-full font-headline font-extrabold text-lg editorial-shadow hover:scale-[0.98] transition-transform disabled:opacity-50 disabled:pointer-events-none border-none cursor-pointer"
+                  >
+                    {searchParams.tripType === 'round_trip'
+                      ? 'Continue to Return'
+                      : 'Proceed to Hotels'}
+                  </button>
                 </div>
               </div>
-
-              {/* Summary Footer */}
-              <div className="mt-8 pt-8 border-t border-surface-container-high">
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-on-surface-variant font-medium">Selected Seats</span>
-                  <span className="font-bold text-primary">
-                    {selectedSeats.map(s => s.id).join(', ') || 'None'}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center mb-6">
-                  <span className="text-xl font-headline font-bold">Total Fare</span>
-                  <span className="text-3xl font-headline font-black text-primary">
-                    ৳{totalFare.toLocaleString()}
-                  </span>
-                </div>
-                <button
-                  onClick={handleProceed}
-                  disabled={selectedSeats.length === 0 || !selectedOperator}
-                  className="w-full bg-gradient-to-br from-primary to-primary-container text-on-primary py-4 rounded-full font-headline font-extrabold text-lg editorial-shadow hover:scale-[0.98] transition-transform disabled:opacity-50 disabled:pointer-events-none"
-                >
-                  {searchParams.tripType === 'round_trip'
-                    ? 'Continue to Return'
-                    : 'Proceed to Hotels'}
-                </button>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </main>
