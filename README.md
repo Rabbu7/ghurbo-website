@@ -18,6 +18,7 @@ Unlike traditional booking engines, GHURBO uses Google Gemini 2.5 Flash to intel
 - **Smart Route Caching** — 30-day cache layer prevents redundant AI calls for popular routes
 - **Multi-Modal Transport** — Book buses, trains, and ships/launches with interactive 2+2 seat maps
 - **Round-Trip Support** — Full outbound + return flow with independent seat selection per leg
+- **Flexible Filters & Sorting** — Filter transport listings by mode (Bus, Train, Ship/Launch) and departure time slot (Morning, Afternoon, Evening, Night), and sort results by departure schedule or price
 - **Hotel Booking** — Filter by star rating, city, and amenities; select room types with dynamic pricing
 - **Skip-Hotel Option** — "Own Arrangement" flow for travelers who book accommodation separately
 - **Real-Time Cost Breakdown** — Transparent pricing across transport + hotel + taxes

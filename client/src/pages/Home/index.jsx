@@ -132,21 +132,19 @@ export default function Home() {
                 <div className="col-span-1 md:col-span-4 flex gap-2 px-4 pt-3">
                   <button
                     onClick={() => setTripType('one_way')}
-                    className={`px-5 py-2 rounded-full text-sm font-bold transition-all ${
-                      tripType === 'one_way'
+                    className={`px-5 py-2 rounded-full text-sm font-bold transition-all ${tripType === 'one_way'
                         ? 'bg-primary text-on-primary'
                         : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high'
-                    }`}
+                      }`}
                   >
                     One Way
                   </button>
                   <button
                     onClick={() => setTripType('round_trip')}
-                    className={`px-5 py-2 rounded-full text-sm font-bold transition-all ${
-                      tripType === 'round_trip'
+                    className={`px-5 py-2 rounded-full text-sm font-bold transition-all ${tripType === 'round_trip'
                         ? 'bg-primary text-on-primary'
                         : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high'
-                    }`}
+                      }`}
                   >
                     Round Trip
                   </button>
@@ -156,11 +154,11 @@ export default function Home() {
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-widest px-2">Origin</label>
                   <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-primary">location_on</span>
-                    <input 
-                      className="bg-transparent border-none focus:ring-0 font-headline font-bold text-lg w-full placeholder:text-outline-variant" 
-                      placeholder="Dhaka" 
-                      type="text" 
-                      value={origin} 
+                    <input
+                      className="bg-transparent border-none focus:ring-0 font-headline font-bold text-lg w-full placeholder:text-outline-variant"
+                      placeholder="Dhaka"
+                      type="text"
+                      value={origin}
                       onChange={(e) => setOrigin(e.target.value)}
                       onFocus={() => origin && setShowOriginSuggestions(true)}
                     />
@@ -178,9 +176,9 @@ export default function Home() {
                             <p className="text-xs text-on-surface-variant">{dest.district}</p>
                           </div>
                           <span className="material-symbols-outlined text-primary text-sm">
-                            {dest.type === 'beach' ? 'beach_access' : 
-                             dest.type === 'hill' ? 'filter_hdr' : 
-                             dest.type === 'nature' ? 'forest' : 'location_city'}
+                            {dest.type === 'beach' ? 'beach_access' :
+                              dest.type === 'hill' ? 'filter_hdr' :
+                                dest.type === 'nature' ? 'forest' : 'location_city'}
                           </span>
                         </button>
                       ))}
@@ -191,11 +189,11 @@ export default function Home() {
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-widest px-2">Destination</label>
                   <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-primary">explore</span>
-                    <input 
-                      className="bg-transparent border-none focus:ring-0 font-headline font-bold text-lg w-full placeholder:text-outline-variant" 
-                      placeholder="Cox's Bazar" 
-                      type="text" 
-                      value={destination} 
+                    <input
+                      className="bg-transparent border-none focus:ring-0 font-headline font-bold text-lg w-full placeholder:text-outline-variant"
+                      placeholder="Cox's Bazar"
+                      type="text"
+                      value={destination}
                       onChange={(e) => setDestination(e.target.value)}
                       onFocus={() => destination && setShowDestinationSuggestions(true)}
                     />
@@ -213,9 +211,9 @@ export default function Home() {
                             <p className="text-xs text-on-surface-variant">{dest.district}</p>
                           </div>
                           <span className="material-symbols-outlined text-primary text-sm">
-                            {dest.type === 'beach' ? 'beach_access' : 
-                             dest.type === 'hill' ? 'filter_hdr' : 
-                             dest.type === 'nature' ? 'forest' : 'location_city'}
+                            {dest.type === 'beach' ? 'beach_access' :
+                              dest.type === 'hill' ? 'filter_hdr' :
+                                dest.type === 'nature' ? 'forest' : 'location_city'}
                           </span>
                         </button>
                       ))}
@@ -231,7 +229,7 @@ export default function Home() {
                 </div>
 
                 {tripType === 'round_trip' && (
-                  <div className="col-span-1 md:col-span-4 px-4 pb-2 flex flex-col gap-1 hover:bg-surface-container-low rounded-lg transition-colors">
+                  <div className="p-4 flex flex-col gap-1 hover:bg-surface-container-low rounded-lg transition-colors">
                     <label className="text-xs font-bold text-on-surface-variant uppercase tracking-widest px-2">
                       Return Date
                     </label>
@@ -264,41 +262,37 @@ export default function Home() {
             <span className="font-headline font-bold text-on-surface-variant mr-4">Quick Search:</span>
             <button
               onClick={() => setActiveFilter('Coastal')}
-              className={`${
-                activeFilter === 'Coastal'
+              className={`${activeFilter === 'Coastal'
                   ? 'bg-secondary-container text-on-secondary-container'
                   : 'bg-surface-container-high text-on-surface'
-              } px-6 py-2 rounded-full font-headline font-semibold flex items-center gap-2 hover:bg-secondary-fixed transition-colors`}
+                } px-6 py-2 rounded-full font-headline font-semibold flex items-center gap-2 hover:bg-secondary-fixed transition-colors`}
             >
               <span className="material-symbols-outlined text-lg">beach_access</span> Coastal
             </button>
             <button
               onClick={() => setActiveFilter('Wildlife')}
-              className={`${
-                activeFilter === 'Wildlife'
+              className={`${activeFilter === 'Wildlife'
                   ? 'bg-secondary-container text-on-secondary-container'
                   : 'bg-surface-container-high text-on-surface'
-              } px-6 py-2 rounded-full font-headline font-semibold flex items-center gap-2 hover:bg-surface-container-highest transition-colors`}
+                } px-6 py-2 rounded-full font-headline font-semibold flex items-center gap-2 hover:bg-surface-container-highest transition-colors`}
             >
               <span className="material-symbols-outlined text-lg">forest</span> Wildlife
             </button>
             <button
               onClick={() => setActiveFilter('Heritage')}
-              className={`${
-                activeFilter === 'Heritage'
+              className={`${activeFilter === 'Heritage'
                   ? 'bg-secondary-container text-on-secondary-container'
                   : 'bg-surface-container-high text-on-surface'
-              } px-6 py-2 rounded-full font-headline font-semibold flex items-center gap-2 hover:bg-surface-container-highest transition-colors`}
+                } px-6 py-2 rounded-full font-headline font-semibold flex items-center gap-2 hover:bg-surface-container-highest transition-colors`}
             >
               <span className="material-symbols-outlined text-lg">temple_buddhist</span> Heritage
             </button>
             <button
               onClick={() => setActiveFilter('Hill Tracts')}
-              className={`${
-                activeFilter === 'Hill Tracts'
+              className={`${activeFilter === 'Hill Tracts'
                   ? 'bg-secondary-container text-on-secondary-container'
                   : 'bg-surface-container-high text-on-surface'
-              } px-6 py-2 rounded-full font-headline font-semibold flex items-center gap-2 hover:bg-surface-container-highest transition-colors`}
+                } px-6 py-2 rounded-full font-headline font-semibold flex items-center gap-2 hover:bg-surface-container-highest transition-colors`}
             >
               <span className="material-symbols-outlined text-lg">filter_hdr</span> Hill Tracts
             </button>

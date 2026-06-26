@@ -144,7 +144,7 @@ Before building any page, complete these:
 
 ## Group 4 — Admin & Partner
 
-- [ ] 15. **Admin Dashboard**
+- [x] 15. **Admin Dashboard**
   - Path: `/admin`
   - File: `src/pages/Admin/index.jsx`
   - Functions: manage users table, manage partners table, manage transport

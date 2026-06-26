@@ -25,6 +25,7 @@ export default function ReturnSelect() {
   const [selectedPerLeg, setSelectedPerLeg] = useState({})
   const [sortBy, setSortBy] = useState('earliest')
   const [filterType, setFilterType] = useState([])
+  const [filterTime, setFilterTime] = useState('')
 
   if (!returnLegs || !Array.isArray(returnLegs) || returnLegs.length === 0) {
     return null
@@ -50,41 +51,58 @@ export default function ReturnSelect() {
   }
 
   const handleFilterToggle = (type) => {
-    setFilterType(prev => 
+    setFilterType(prev =>
       prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
     )
   }
 
+  const handleTimeFilter = (time) => {
+    setFilterTime(filterTime === time ? '' : time)
+  }
+
   const handleClearFilters = () => {
     setFilterType([])
+    setFilterTime('')
   }
 
   // Active leg computations
   const activeLeg = returnLegs[activeLegIndex]
-  const rawOperators = activeLeg?.operators || []
+  const allReturnOperators = activeLeg?.operators || []
 
-  const filteredOperators = rawOperators.filter(op => {
-    if (filterType.length === 0) return true
-    const opMode = op.mode || activeLeg.mode
-    return filterType.some(type => {
-      if (type === 'launch' || type === 'ship') {
-        return opMode === 'launch' || opMode === 'ship'
-      }
-      return type === opMode
-    })
+  const filteredReturnOperators = allReturnOperators.filter(op => {
+    // Transport type filter
+    if (filterType.length > 0) {
+      const opMode = op.mode || op.leg?.mode || activeLeg?.mode
+      const typeMatch = filterType.some(type => {
+        if (type === 'launch' || type === 'ship') {
+          return opMode === 'launch' || opMode === 'ship'
+        }
+        return type === opMode
+      })
+      if (!typeMatch) return false
+    }
+    
+    // Departure time filter
+    if (filterTime) {
+      const departure = op.schedules?.[0]?.departure || ''
+      const hour = parseInt(departure.split(':')[0])
+      
+      if (filterTime === 'morning' && (hour < 6 || hour >= 12)) return false
+      if (filterTime === 'afternoon' && (hour < 12 || hour >= 18)) return false
+      if (filterTime === 'evening' && (hour < 18 || hour >= 24)) return false
+      if (filterTime === 'night' && (hour >= 0 && hour < 6)) return false
+    }
+    
+    return true
   })
 
-  const sortedOperators = [...filteredOperators].sort((a, b) => {
-    if (sortBy === 'price') {
-      const priceA = a.seat_types?.[0]?.price || 0
-      const priceB = b.seat_types?.[0]?.price || 0
-      return priceA - priceB
-    }
-    if (sortBy === 'earliest') {
-      const depA = a.schedules?.[0]?.departure || ''
-      const depB = b.schedules?.[0]?.departure || ''
-      return depA.localeCompare(depB)
-    }
+  const sortedReturnOperators = [...filteredReturnOperators].sort((a, b) => {
+    if (sortBy === 'price')
+      return (a.seat_types?.[0]?.price || 0) - (b.seat_types?.[0]?.price || 0)
+    if (sortBy === 'earliest')
+      return (a.schedules?.[0]?.departure || '').localeCompare(
+        b.schedules?.[0]?.departure || ''
+      )
     return 0
   })
 
@@ -212,32 +230,29 @@ export default function ReturnSelect() {
               <div className="mb-8">
                 <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant/60 mb-4">Transport Type</p>
                 <div className="flex flex-col gap-3">
-                  <button 
-                    onClick={() => handleFilterToggle('bus')}
-                    className="w-full flex items-center gap-3 cursor-pointer group bg-transparent border-none text-left p-0"
-                  >
-                    <div className={`w-5 h-5 rounded border-2 transition-colors flex items-center justify-center ${filterType.includes('bus') ? 'border-primary bg-primary' : 'border-outline group-hover:border-primary bg-surface-container-lowest'}`}>
+                  <button onClick={() => handleFilterToggle('bus')} className="w-full flex items-center gap-3 cursor-pointer group bg-transparent border-none text-left p-0">
+                    <div className={`w-5 h-5 rounded border-2 transition-colors flex items-center justify-center ${
+                      filterType.includes('bus') ? 'border-primary bg-primary' : 'border-outline group-hover:border-primary bg-surface-container-lowest'
+                    }`}>
                       {filterType.includes('bus') && <span className="material-symbols-outlined text-on-primary text-[10px] font-bold">check</span>}
                     </div>
                     <span className={`text-sm ${filterType.includes('bus') ? 'font-bold text-on-surface' : 'font-medium text-on-surface-variant'}`}>Bus</span>
                   </button>
-                  <button 
-                    onClick={() => handleFilterToggle('train')}
-                    className="w-full flex items-center gap-3 cursor-pointer group bg-transparent border-none text-left p-0"
-                  >
-                    <div className={`w-5 h-5 rounded border-2 transition-colors flex items-center justify-center ${filterType.includes('train') ? 'border-primary bg-primary' : 'border-outline group-hover:border-primary bg-surface-container-lowest'}`}>
+                  <button onClick={() => handleFilterToggle('train')} className="w-full flex items-center gap-3 cursor-pointer group bg-transparent border-none text-left p-0">
+                    <div className={`w-5 h-5 rounded border-2 transition-colors flex items-center justify-center ${
+                      filterType.includes('train') ? 'border-primary bg-primary' : 'border-outline group-hover:border-primary bg-surface-container-lowest'
+                    }`}>
                       {filterType.includes('train') && <span className="material-symbols-outlined text-on-primary text-[10px] font-bold">check</span>}
                     </div>
                     <span className={`text-sm ${filterType.includes('train') ? 'font-bold text-on-surface' : 'font-medium text-on-surface-variant'}`}>Train</span>
                   </button>
-                  <button 
-                    onClick={() => handleFilterToggle('launch')}
-                    className="w-full flex items-center gap-3 cursor-pointer group bg-transparent border-none text-left p-0"
-                  >
-                    <div className={`w-5 h-5 rounded border-2 transition-colors flex items-center justify-center ${filterType.includes('launch') ? 'border-primary bg-primary' : 'border-outline group-hover:border-primary bg-surface-container-lowest'}`}>
+                  <button onClick={() => handleFilterToggle('launch')} className="w-full flex items-center gap-3 cursor-pointer group bg-transparent border-none text-left p-0">
+                    <div className={`w-5 h-5 rounded border-2 transition-colors flex items-center justify-center ${
+                      filterType.includes('launch') ? 'border-primary bg-primary' : 'border-outline group-hover:border-primary bg-surface-container-lowest'
+                    }`}>
                       {filterType.includes('launch') && <span className="material-symbols-outlined text-on-primary text-[10px] font-bold">check</span>}
                     </div>
-                    <span className={`text-sm ${filterType.includes('launch') ? 'font-bold text-on-surface' : 'font-medium text-on-surface-variant'}`}>Ship / Cruise</span>
+                    <span className={`text-sm ${filterType.includes('launch') ? 'font-bold text-on-surface' : 'font-medium text-on-surface-variant'}`}>Ship/Cruise</span>
                   </button>
                 </div>
               </div>
@@ -254,10 +269,46 @@ export default function ReturnSelect() {
               <div>
                 <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant/60 mb-4">Departure Time</p>
                 <div className="grid grid-cols-2 gap-2">
-                  <button className="bg-surface-container-lowest text-on-surface px-3 py-2 rounded-md text-xs font-bold border border-transparent hover:border-primary transition-all cursor-pointer">Morning</button>
-                  <button className="bg-surface-container-lowest text-on-surface px-3 py-2 rounded-md text-xs font-bold border border-transparent hover:border-primary transition-all cursor-pointer">Afternoon</button>
-                  <button className="bg-surface-container-lowest text-on-surface px-3 py-2 rounded-md text-xs font-bold border border-transparent hover:border-primary transition-all cursor-pointer">Evening</button>
-                  <button className="bg-surface-container-lowest text-on-surface px-3 py-2 rounded-md text-xs font-bold border border-transparent hover:border-primary transition-all cursor-pointer">Night</button>
+                  <button
+                    onClick={() => handleTimeFilter('morning')}
+                    className={`bg-surface-container-lowest text-on-surface px-3 py-2 rounded-md text-xs font-bold border transition-all cursor-pointer ${
+                      filterTime === 'morning'
+                        ? 'border-primary bg-primary-container text-primary'
+                        : 'border-transparent hover:border-primary'
+                    }`}
+                  >
+                    Morning
+                  </button>
+                  <button
+                    onClick={() => handleTimeFilter('afternoon')}
+                    className={`bg-surface-container-lowest text-on-surface px-3 py-2 rounded-md text-xs font-bold border transition-all cursor-pointer ${
+                      filterTime === 'afternoon'
+                        ? 'border-primary bg-primary-container text-primary'
+                        : 'border-transparent hover:border-primary'
+                    }`}
+                  >
+                    Afternoon
+                  </button>
+                  <button
+                    onClick={() => handleTimeFilter('evening')}
+                    className={`bg-surface-container-lowest text-on-surface px-3 py-2 rounded-md text-xs font-bold border transition-all cursor-pointer ${
+                      filterTime === 'evening'
+                        ? 'border-primary bg-primary-container text-primary'
+                        : 'border-transparent hover:border-primary'
+                    }`}
+                  >
+                    Evening
+                  </button>
+                  <button
+                    onClick={() => handleTimeFilter('night')}
+                    className={`bg-surface-container-lowest text-on-surface px-3 py-2 rounded-md text-xs font-bold border transition-all cursor-pointer ${
+                      filterTime === 'night'
+                        ? 'border-primary bg-primary-container text-primary'
+                        : 'border-transparent hover:border-primary'
+                    }`}
+                  >
+                    Night
+                  </button>
                 </div>
               </div>
             </div>
@@ -315,88 +366,75 @@ export default function ReturnSelect() {
 
                     {/* Operators List */}
                     <div className="space-y-4">
-                      {rawOperators.length === 0 ? (
-                        <div className="text-center py-10 bg-surface-container-low rounded-xl p-6">
-                          <span className="material-symbols-outlined text-5xl text-on-surface-variant mb-4">
-                            {leg.mode === 'train' ? 'train' : leg.mode === 'launch' || leg.mode === 'ship' ? 'directions_boat' : 'directions_bus'}
-                          </span>
-                          <h4 className="font-headline font-bold text-lg mb-2">No operators available</h4>
-                          <p className="text-sm text-on-surface-variant max-w-md mx-auto">
-                            We couldn't find any {leg.mode} operators for this leg. Try searching a different route.
-                          </p>
+                      {filteredReturnOperators.length === 0 && (
+                        <div className="text-center py-20 text-on-surface-variant font-medium">
+                          {allReturnOperators.length === 0 
+                            ? 'No return operators found for this route.'
+                            : 'No operators match your filters. Try adjusting your criteria.'}
                         </div>
-                      ) : filteredOperators.length === 0 ? (
-                        <div className="text-center py-10 bg-surface-container-low rounded-xl p-6">
-                          <span className="material-symbols-outlined text-5xl text-on-surface-variant mb-4">filter_list_off</span>
-                          <h4 className="font-headline font-bold text-lg mb-2">No {leg.mode} operators available for this leg.</h4>
-                          <p className="text-sm text-on-surface-variant max-w-md mx-auto">
-                            Try a different filter or select from available options.
-                          </p>
-                        </div>
-                      ) : (
-                        sortedOperators.map((op, idx) => (
-                          <div
-                            key={idx}
-                            className="bg-surface-container-low rounded-2xl p-6 flex flex-col md:flex-row gap-6 items-center justify-between hover:shadow-md transition-all border border-transparent"
-                          >
-                            <div className="flex items-center gap-4 w-full md:w-auto">
-                              <div className="w-12 h-12 rounded-xl bg-surface-container-lowest flex items-center justify-center shrink-0">
-                                <span className="material-symbols-outlined text-2xl text-on-surface-variant">
-                                  {leg.mode === 'train' ? 'train' : leg.mode === 'launch' || leg.mode === 'ship' ? 'directions_boat' : 'directions_bus'}
-                                </span>
-                              </div>
-                              <div>
-                                <h4 className="font-headline font-bold text-on-surface text-lg">{op.operator_name}</h4>
-                                <p className="text-xs font-semibold text-on-surface-variant">
-                                  {leg.mode?.toUpperCase()} • {leg.from} → {leg.to}
-                                </p>
-                              </div>
+                      )}
+                      {filteredReturnOperators.length > 0 && sortedReturnOperators.map((op, idx) => (
+                        <div
+                          key={idx}
+                          className="bg-surface-container-low rounded-2xl p-6 flex flex-col md:flex-row gap-6 items-center justify-between hover:shadow-md transition-all border border-transparent"
+                        >
+                          <div className="flex items-center gap-4 w-full md:w-auto">
+                            <div className="w-12 h-12 rounded-xl bg-surface-container-lowest flex items-center justify-center shrink-0">
+                              <span className="material-symbols-outlined text-2xl text-on-surface-variant">
+                                {leg.mode === 'train' ? 'train' : leg.mode === 'launch' || leg.mode === 'ship' ? 'directions_boat' : 'directions_bus'}
+                              </span>
                             </div>
-
-                            <div className="flex-1 grid grid-cols-3 items-center gap-4 w-full text-center">
-                              <div>
-                                <h5 className="text-lg font-headline font-bold text-on-surface">
-                                  {op.schedules?.[0]?.departure || '--:--'}
-                                </h5>
-                                <p className="text-[10px] text-on-surface-variant font-medium">{leg.from}</p>
-                              </div>
-                              <div className="flex flex-col items-center">
-                                <span className="text-[10px] font-bold text-on-surface-variant mb-1">
-                                  {op.schedules?.[0]?.duration_hours}h
-                                </span>
-                                <div className="w-full flex items-center gap-2">
-                                  <div className="h-[1px] flex-1 border-t border-dashed border-outline-variant"></div>
-                                  <span className="material-symbols-outlined text-outline-variant text-sm">schedule</span>
-                                  <div className="h-[1px] flex-1 border-t border-dashed border-outline-variant"></div>
-                                </div>
-                              </div>
-                              <div>
-                                <h5 className="text-lg font-headline font-bold text-on-surface">
-                                  {op.schedules?.[0]?.arrival || '--:--'}
-                                </h5>
-                                <p className="text-[10px] text-on-surface-variant font-medium">{leg.to}</p>
-                              </div>
-                            </div>
-
-                            <div className="flex flex-col items-center md:items-end gap-2 w-full md:w-auto">
-                              <div className="flex flex-wrap gap-2 justify-center md:justify-end">
-                                {op.seat_types?.map((st, sIdx) => (
-                                  <div key={sIdx} className="text-xs bg-surface-container-lowest px-2.5 py-1 rounded-lg">
-                                    <span className="text-on-surface-variant font-medium">{st.type}: </span>
-                                    <span className="font-bold text-on-surface">৳ {st.price}</span>
-                                  </div>
-                                ))}
-                              </div>
-                              <button
-                                onClick={() => handleSelect(op)}
-                                className="w-full md:w-36 mt-2 font-bold py-2.5 rounded-full bg-gradient-to-br from-primary to-primary-container text-on-primary hover:scale-[1.02] active:scale-98 transition-all text-sm border-none shadow-sm cursor-pointer"
-                              >
-                                Select
-                              </button>
+                            <div>
+                              <h4 className="font-headline font-bold text-on-surface text-lg">{op.operator_name}</h4>
+                              <p className="text-xs font-semibold text-on-surface-variant">
+                                {leg.mode?.toUpperCase()} • {leg.from} → {leg.to}
+                              </p>
                             </div>
                           </div>
-                        ))
-                      )}
+
+                          <div className="flex-1 grid grid-cols-3 items-center gap-4 w-full text-center">
+                            <div>
+                              <h5 className="text-lg font-headline font-bold text-on-surface">
+                                {op.schedules?.[0]?.departure || '--:--'}
+                              </h5>
+                              <p className="text-[10px] text-on-surface-variant font-medium">{leg.from}</p>
+                            </div>
+                            <div className="flex flex-col items-center">
+                              <span className="text-[10px] font-bold text-on-surface-variant mb-1">
+                                {op.schedules?.[0]?.duration_hours}h
+                              </span>
+                              <div className="w-full flex items-center gap-2">
+                                <div className="h-[1px] flex-1 border-t border-dashed border-outline-variant"></div>
+                                <span className="material-symbols-outlined text-outline-variant text-sm">schedule</span>
+                                <div className="h-[1px] flex-1 border-t border-dashed border-outline-variant"></div>
+                              </div>
+                            </div>
+                            <div>
+                              <h5 className="text-lg font-headline font-bold text-on-surface">
+                                {op.schedules?.[0]?.arrival || '--:--'}
+                              </h5>
+                              <p className="text-[10px] text-on-surface-variant font-medium">{leg.to}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col items-center md:items-end gap-2 w-full md:w-auto">
+                            <div className="flex flex-wrap gap-2 justify-center md:justify-end">
+                              {op.seat_types?.map((st, sIdx) => (
+                                <div key={sIdx} className="text-xs bg-surface-container-lowest px-2.5 py-1 rounded-lg">
+                                  <span className="text-on-surface-variant font-medium">{st.type}: </span>
+                                  <span className="font-bold text-on-surface">৳ {st.price}</span>
+                                </div>
+                              ))}
+                            </div>
+                            <button
+                              onClick={() => handleSelect(op)}
+                              className="w-full md:w-36 mt-2 font-bold py-2.5 rounded-full bg-gradient-to-br from-primary to-primary-container text-on-primary hover:scale-[1.02] active:scale-98 transition-all text-sm border-none shadow-sm cursor-pointer"
+                            >
+                              Select
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )

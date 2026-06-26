@@ -21,6 +21,7 @@ export default function SearchResults() {
   // Scoped filters / sorting state
   const [sortBy, setSortBy] = useState('earliest')
   const [filterType, setFilterType] = useState([])
+  const [filterTime, setFilterTime] = useState('')
 
   useEffect(() => {
     const fetchResults = async () => {
@@ -82,6 +83,10 @@ export default function SearchResults() {
     setFilterType([])
   }
 
+  const handleTimeFilter = (time) => {
+    setFilterTime(filterTime === time ? '' : time)
+  }
+
   const selectedOperators = Object.values(selectedPerLeg)
   const totalSum = selectedOperators.reduce((sum, op) => sum + (op.seat_types?.[0]?.price || 0), 0)
   const allLegsSelected = results?.forward_legs?.length > 0 && selectedOperators.length === results.forward_legs.length
@@ -100,14 +105,30 @@ export default function SearchResults() {
   const rawOperators = activeLeg?.operators || []
 
   const filteredOperators = rawOperators.filter(op => {
-    if (filterType.length === 0) return true
-    const opMode = op.mode || activeLeg.mode
-    return filterType.some(type => {
-      if (type === 'launch' || type === 'ship') {
-        return opMode === 'launch' || opMode === 'ship'
-      }
-      return type === opMode
-    })
+    // Transport type filter
+    if (filterType.length > 0) {
+      const opMode = op.mode || activeLeg.mode
+      const typeMatch = filterType.some(type => {
+        if (type === 'launch' || type === 'ship') {
+          return opMode === 'launch' || opMode === 'ship'
+        }
+        return type === opMode
+      })
+      if (!typeMatch) return false
+    }
+    
+    // Departure time filter
+    if (filterTime) {
+      const departure = op.schedules?.[0]?.departure || ''
+      const hour = parseInt(departure.split(':')[0])
+      
+      if (filterTime === 'morning' && (hour < 6 || hour >= 12)) return false
+      if (filterTime === 'afternoon' && (hour < 12 || hour >= 18)) return false
+      if (filterTime === 'evening' && (hour < 18 || hour >= 24)) return false
+      if (filterTime === 'night' && (hour < 0 || hour >= 6)) return false
+    }
+    
+    return true
   })
 
   const sortedOperators = [...filteredOperators].sort((a, b) => {
@@ -181,7 +202,7 @@ export default function SearchResults() {
               <h3 className="font-headline font-bold text-lg mb-6 flex items-center justify-between">
                 Filters
                 <button 
-                  onClick={handleClearFilters}
+                  onClick={() => { handleClearFilters(); setFilterTime('') }}
                   className="text-sm font-label text-primary font-semibold cursor-pointer border-none bg-transparent hover:underline"
                 >
                   Clear All
@@ -237,16 +258,44 @@ export default function SearchResults() {
               <div>
                 <label className="block text-sm font-bold text-on-surface-variant uppercase tracking-widest mb-4">Departure Time</label>
                 <div className="grid grid-cols-2 gap-2">
-                  <button className="p-3 rounded-xl border border-outline-variant bg-surface-container-lowest text-xs font-bold text-center hover:bg-primary-container hover:border-primary transition-all">
+                  <button 
+                    onClick={() => handleTimeFilter('morning')}
+                    className={`p-3 rounded-xl border text-xs font-bold text-center transition-all ${
+                      filterTime === 'morning'
+                        ? 'border-primary bg-primary-container text-primary'
+                        : 'border-outline-variant bg-surface-container-lowest hover:bg-primary-container hover:border-primary'
+                    }`}
+                  >
                     Morning<br /><span className="opacity-60">06:00-12:00</span>
                   </button>
-                  <button className="p-3 rounded-xl border border-primary bg-primary-container text-xs font-bold text-center transition-all">
+                  <button 
+                    onClick={() => handleTimeFilter('afternoon')}
+                    className={`p-3 rounded-xl border text-xs font-bold text-center transition-all ${
+                      filterTime === 'afternoon'
+                        ? 'border-primary bg-primary-container text-primary'
+                        : 'border-outline-variant bg-surface-container-lowest hover:bg-primary-container hover:border-primary'
+                    }`}
+                  >
                     Afternoon<br /><span className="opacity-60">12:00-18:00</span>
                   </button>
-                  <button className="p-3 rounded-xl border border-outline-variant bg-surface-container-lowest text-xs font-bold text-center hover:bg-primary-container transition-all">
+                  <button 
+                    onClick={() => handleTimeFilter('evening')}
+                    className={`p-3 rounded-xl border text-xs font-bold text-center transition-all ${
+                      filterTime === 'evening'
+                        ? 'border-primary bg-primary-container text-primary'
+                        : 'border-outline-variant bg-surface-container-lowest hover:bg-primary-container hover:border-primary'
+                    }`}
+                  >
                     Evening<br /><span className="opacity-60">18:00-00:00</span>
                   </button>
-                  <button className="p-3 rounded-xl border border-outline-variant bg-surface-container-lowest text-xs font-bold text-center hover:bg-primary-container transition-all">
+                  <button 
+                    onClick={() => handleTimeFilter('night')}
+                    className={`p-3 rounded-xl border text-xs font-bold text-center transition-all ${
+                      filterTime === 'night'
+                        ? 'border-primary bg-primary-container text-primary'
+                        : 'border-outline-variant bg-surface-container-lowest hover:bg-primary-container hover:border-primary'
+                    }`}
+                  >
                     Night<br /><span className="opacity-60">00:00-06:00</span>
                   </button>
                 </div>
