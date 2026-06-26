@@ -79,13 +79,13 @@ export default function UserDashboard() {
               <img
                 alt="User Profile"
                 className="w-full h-full object-cover rounded-xl shadow-sm border-4 border-surface-container-low"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuBpHekN2d0_H6FwjylBxVetuRMokDLAcM2_ICtA99SOdbAV2TkSGThoh5ioP8P3rqlt5V8kDQMlfG5CVeTL_F-u9xAfLpcXpCiZg8jHQ2E_ME8f3GMJdKHWeMS_dtkJEWrY3R8y8RzlxpsA2tA1DPVoowvxBTbzfDdFd-LBug6cMEfPsVCFU84UmP3AkhQ34BgrwJPKxtuMDvR0lG47LBQGuJFj75pU4VUOoNRCQH4BQMSWJP6nyQRlAN730F6OwJ2FJQozSLDRxPU"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuDzlB2jr2yoCB8M_sgRCyNrvXk98WTLFGZpXByUGiBKqyfHKhkTrg7uylEcAQTl0RE1QZPNLKhczrQGadARAfGH5-b1Foxndsc_nlF9Uq-vjvj44yaoi2SB3SVKcGRc0fGz_ccbUy8VukTIehaHccEGF2CGbqHI-qIY8BL1keXX-KvO1fwL6hdUc7RdFA70bXA-gi1bQuUvzgJ0qyfeykeeSzaBJAg1MCdmogw0zgjCFq4rU6-T0hDsHZCWEPy4kJE4htj_qGKYNBk"
               />
             </div>
             <div className="flex-grow space-y-4 text-center md:text-left z-10">
               <div>
                 <h1 className="text-4xl font-headline font-extrabold text-on-surface tracking-tight">
-                  Salam, {user?.name || 'Guest'}
+                  Hello, {user?.name || 'Guest'}
                 </h1>
                 <p className="text-on-surface-variant font-medium mt-1">
                   Adventurer & River Guide Enthusiast
@@ -172,6 +172,13 @@ export default function UserDashboard() {
               >
                 <span className="material-symbols-outlined">payments</span>
                 Transactions
+              </Link>
+              <Link
+                to="/profile"
+                className="w-full flex items-center gap-4 px-6 py-4 rounded-xl text-on-surface-variant font-medium hover:bg-surface-container-high transition-colors"
+              >
+                <span className="material-symbols-outlined">person</span>
+                Profile
               </Link>
               <Link
                 to="#"

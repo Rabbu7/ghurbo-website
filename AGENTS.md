@@ -332,11 +332,3 @@ CLIENT_URL=http://localhost:5173
 
 ---
 
-## 9. Build Phase Roadmap
-
-| Phase | Weeks | Focus | Status |
-|---|---|---|---|
-| Phase 1 | 1–3 | Folder structure, all Mongoose models, Express setup, Auth API, React scaffold, Auth UI | [x] Completed |
-| Phase 2 | 4–6 | Search API (Gemini + cache + DB match), Operator/Hotel seeding, Search + Hotel UI | [x] Completed |
-| Phase 3 | 7–9 | Booking engine, Payment simulation, QR + e-ticket, Email confirmation | [x] Completed |
-| Phase 4 | 10–12 | Partner portal, Admin dashboard, Deployment | [x] Completed |

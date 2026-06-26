@@ -84,7 +84,7 @@ export default function Profile() {
             </div>
             <div className="flex-grow space-y-4 text-center md:text-left z-10">
               <div>
-                <h1 className="text-4xl font-headline font-extrabold text-on-surface tracking-tight">Salam, {user?.name}</h1>
+                <h1 className="text-4xl font-headline font-extrabold text-on-surface tracking-tight">Hello, {user?.name}</h1>
                 <p className="text-on-surface-variant font-medium mt-1">Manage your personal information and security settings.</p>
               </div>
               <div className="flex flex-wrap justify-center md:justify-start gap-3">
